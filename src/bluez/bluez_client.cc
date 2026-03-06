@@ -68,7 +68,7 @@ void BluezClient::onInterfacesAdded(
         devices_[objectPath] = std::move(device);
       }
     } else if (interface == org::bluez::GattService1_proxy::INTERFACE_NAME) {
-      std::scoped_lock lock(gatt_services_mutex_);
+      std::scoped_lock lock(gatt_mutex_);
       if (!gatt_services_.contains(objectPath)) {
         auto device = std::make_unique<GattService1>(
             getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
@@ -77,14 +77,14 @@ void BluezClient::onInterfacesAdded(
       }
     } else if (interface ==
                org::bluez::GattCharacteristic1_proxy::INTERFACE_NAME) {
-      std::scoped_lock lock(gatt_services_mutex_);
+      std::scoped_lock lock(gatt_mutex_);
       auto key = sdbus::MemberName("Service");
       auto object_path = properties.at(key).get<sdbus::ObjectPath>();
       gatt_characteristics_[objectPath] = std::make_unique<GattCharacteristic1>(
           getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
           objectPath, properties);
     } else if (interface == org::bluez::GattDescriptor1_proxy::INTERFACE_NAME) {
-      std::scoped_lock lock(gatt_services_mutex_);
+      std::scoped_lock lock(gatt_mutex_);
       auto key = sdbus::MemberName("Characteristic");
       auto object_path = properties.at(key).get<sdbus::ObjectPath>();
       gatt_descriptors_[objectPath] = std::make_unique<GattDescriptor1>(
@@ -154,10 +154,23 @@ void BluezClient::onInterfacesRemoved(
         devices_.erase(objectPath);
       }
     } else if (interface == org::bluez::GattService1_proxy::INTERFACE_NAME) {
-      std::scoped_lock lock(gatt_services_mutex_);
+      std::scoped_lock lock(gatt_mutex_);
       if (gatt_services_.contains(objectPath)) {
         gatt_services_[objectPath].reset();
         gatt_services_.erase(objectPath);
+      }
+    } else if (interface ==
+               org::bluez::GattCharacteristic1_proxy::INTERFACE_NAME) {
+      std::scoped_lock lock(gatt_mutex_);
+      if (gatt_characteristics_.contains(objectPath)) {
+        gatt_characteristics_[objectPath].reset();
+        gatt_characteristics_.erase(objectPath);
+      }
+    } else if (interface == org::bluez::GattDescriptor1_proxy::INTERFACE_NAME) {
+      std::scoped_lock lock(gatt_mutex_);
+      if (gatt_descriptors_.contains(objectPath)) {
+        gatt_descriptors_[objectPath].reset();
+        gatt_descriptors_.erase(objectPath);
       }
     } else if (interface == org::bluez::Battery1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(battery1_mutex_);
