@@ -24,11 +24,10 @@ int main() {
 
     UDisks2Manager manager(*connection);
 
-    using namespace std::chrono_literals;
     spdlog::info("UDisks2 client running - Press Ctrl+C to exit");
 
-    // Monitor loop with connection health checks every 30 seconds
-    auto result = monitorLoop(*connection, 30s, 100ms);
+    // Monitor loop with shared connection health timing defaults
+    auto result = monitorLoop(*connection);
 
     if (result) {
       spdlog::error("Exiting due to: {}", *result);

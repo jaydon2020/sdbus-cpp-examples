@@ -43,11 +43,9 @@ int main() {
     client->DesktopId("org.example.geoclue2");
     client->Start();
 
-    using namespace std::chrono_literals;
-    spdlog::info("GeoClue2 client running - Press Ctrl+C to exit");
+    spdlog::info("Geoclue2 monitor daemon running - Press Ctrl+C to exit");
 
-    // Monitor loop with connection health checks every 30 seconds
-    auto result = monitorLoop(*connection, 30s, 100ms);
+    auto result = monitorLoop(*connection);
 
     if (result) {
       spdlog::error("Exiting due to: {}", *result);

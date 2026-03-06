@@ -31,6 +31,10 @@
  */
 inline std::atomic<bool> g_running{true};
 
+inline constexpr auto kConnectionCheckInterval = std::chrono::seconds(30);
+inline constexpr auto kMonitorSleepInterval = std::chrono::milliseconds(100);
+inline constexpr auto kLogFlushInterval = std::chrono::seconds(5);
+
 /**
  * @brief Signal handler for graceful shutdown
  *
@@ -107,8 +111,8 @@ inline bool isConnectionAlive(sdbus::IConnection& connection) {
  */
 inline std::optional<std::string> monitorLoop(
     sdbus::IConnection& connection,
-    const std::chrono::seconds check_interval = std::chrono::seconds(30),
-    const std::chrono::milliseconds sleep_interval = std::chrono::milliseconds(100)) {
+    const std::chrono::seconds check_interval = kConnectionCheckInterval,
+    const std::chrono::milliseconds sleep_interval = kMonitorSleepInterval) {
   auto last_check = std::chrono::steady_clock::now();
 
   while (g_running) {

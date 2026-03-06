@@ -22,18 +22,17 @@ int main() {
     installSignalHandlers();
 
     spdlog::set_level(spdlog::level::debug);
-    spdlog::flush_every(std::chrono::seconds(5));
+    spdlog::flush_every(kLogFlushInterval);
 
     const auto connection = sdbus::createSystemBusConnection();
     connection->enterEventLoopAsync();
 
     DualSense client(*connection);
 
-    using namespace std::chrono_literals;
     spdlog::info("PS5 DualSense client running - Press Ctrl+C to exit");
 
-    // Monitor loop with connection health checks every 30 seconds
-    auto result = monitorLoop(*connection, 30s, 100ms);
+    // Monitor loop with shared connection health timing defaults
+    auto result = monitorLoop(*connection);
 
     if (result) {
       spdlog::error("Exiting due to: {}", *result);

@@ -506,9 +506,9 @@ int main() {
     // The event loop runs in a separate thread handling D-Bus messages
     // Note: In a production daemon, implement proper signal handling (SIGTERM,
     // SIGINT) to gracefully shut down and call connection->leaveEventLoop()
-    using namespace std::chrono_literals;
+    constexpr auto kDaemonIdleSleepInterval = std::chrono::seconds(1);
     while (true) {
-      std::this_thread::sleep_for(1000ms);
+      std::this_thread::sleep_for(kDaemonIdleSleepInterval);
     }
   } catch (const std::exception& e) {
     spdlog::error("Fatal error: {}", e.what());

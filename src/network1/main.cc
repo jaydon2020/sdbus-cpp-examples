@@ -10,13 +10,11 @@ int main() {
     const auto connection = sdbus::createSystemBusConnection();
     connection->enterEventLoopAsync();
 
-    Network1ManagerClient client(*connection);
+    Network1ManagerClient network_manager(*connection);
 
-    using namespace std::chrono_literals;
-    spdlog::info("Network1 client running - Press Ctrl+C to exit");
+    spdlog::info("network1 monitor daemon running - Press Ctrl+C to exit");
 
-    // Monitor loop with connection health checks every 30 seconds
-    auto result = monitorLoop(*connection, 30s, 100ms);
+    auto result = monitorLoop(*connection);
 
     if (result) {
       spdlog::error("Exiting due to: {}", *result);

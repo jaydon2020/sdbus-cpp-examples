@@ -24,11 +24,9 @@ int main() {
 
     NetworkManagerClient client(*connection);
 
-    using namespace std::chrono_literals;
-    spdlog::info("NetworkManager client running - Press Ctrl+C to exit");
+    spdlog::info("NetworkManager monitor daemon running - Press Ctrl+C to exit");
 
-    // Monitor loop with connection health checks every 30 seconds
-    auto result = monitorLoop(*connection, 30s, 100ms);
+    auto result = monitorLoop(*connection);
 
     if (result) {
       spdlog::error("Exiting due to: {}", *result);

@@ -22,15 +22,11 @@ int main() {
     const auto connection = sdbus::createSystemBusConnection();
     connection->enterEventLoopAsync();
 
-    // UPowerClient client(*connection,
-    // "/org/freedesktop/UPower/devices/battery_ps_controller_battery_88o03o4co82o6bo29");
-    UPowerClient client(*connection);
+    UPowerClient client(*connection, sdbus::ObjectPath("/org/freedesktop/UPower/devices/DisplayDevice"));
 
-    using namespace std::chrono_literals;
-    spdlog::info("UPower client running - Press Ctrl+C to exit");
+    spdlog::info("UPower monitor daemon running - Press Ctrl+C to exit");
 
-    // Monitor loop with connection health checks every 30 seconds
-    auto result = monitorLoop(*connection, 30s, 100ms);
+    auto result = monitorLoop(*connection);
 
     if (result) {
       spdlog::error("Exiting due to: {}", *result);
