@@ -51,6 +51,42 @@ class Hidraw {
   }
 
   /**
+   * \brief RAII wrapper for udev context
+   */
+  struct UdevDeleter {
+    void operator()(udev* u) const {
+      if (u) {
+        udev_unref(u);
+      }
+    }
+  };
+  using UdevPtr = std::unique_ptr<udev, UdevDeleter>;
+
+  /**
+   * \brief RAII wrapper for udev_enumerate
+   */
+  struct UdevEnumerateDeleter {
+    void operator()(udev_enumerate* e) const {
+      if (e) {
+        udev_enumerate_unref(e);
+      }
+    }
+  };
+  using UdevEnumeratePtr = std::unique_ptr<udev_enumerate, UdevEnumerateDeleter>;
+
+  /**
+   * \brief RAII wrapper for udev_device
+   */
+  struct UdevDeviceDeleter {
+    void operator()(udev_device* d) const {
+      if (d) {
+        udev_device_unref(d);
+      }
+    }
+  };
+  using UdevDevicePtr = std::unique_ptr<udev_device, UdevDeviceDeleter>;
+
+  /**
    * \brief Retrieves the udev framebuffer system attributes.
    *
    * \return An unordered map containing the udev framebuffer system attributes.
@@ -61,39 +97,64 @@ class Hidraw {
                       const std::vector<std::pair<std::string, std::string>>&
                           match_params = {}) {
     std::unordered_map<std::string, std::map<std::string, std::string>> results;
-    const auto udev = udev_new();
+
+    // Use RAII wrapper for automatic cleanup
+    const UdevPtr udev(udev_new());
     if (!udev) {
       spdlog::error("Can't create udev");
-      return results;
+      return results;  // Safe - RAII cleans up automatically
     }
 
-    const auto enumerate = udev_enumerate_new(udev);
-    udev_enumerate_add_match_subsystem(enumerate, sub_system.c_str());
-    udev_enumerate_scan_devices(enumerate);
+    // Use RAII wrapper for enumerating
+    const UdevEnumeratePtr enumerate(udev_enumerate_new(udev.get()));
+    if (!enumerate) {
+      spdlog::error("Can't create udev enumerate");
+      return results;  // Safe - both RAII objects clean up
+    }
 
-    const auto devices = udev_enumerate_get_list_entry(enumerate);
+    if (const int res = udev_enumerate_add_match_subsystem(enumerate.get(), sub_system.c_str());
+        res < 0) {
+      spdlog::error("Failed to add subsystem match: {}", sub_system);
+      return results;  // Safe - RAII cleanup
+    }
+
+    if (const int res = udev_enumerate_scan_devices(enumerate.get()); res < 0) {
+      spdlog::error("Failed to scan devices");
+      return results;  // Safe - RAII cleanup
+    }
+
+    const auto devices = udev_enumerate_get_list_entry(enumerate.get());
     udev_list_entry* dev_list_entry;
     udev_list_entry_foreach(dev_list_entry, devices) {
       std::map<std::string, std::string> properties;
 
       const auto path = udev_list_entry_get_name(dev_list_entry);
-      const auto dev = udev_device_new_from_syspath(udev, path);
+      if (!path) {
+        continue;  // Skip invalid entries
+      }
 
-      const auto properties_list = udev_device_get_properties_list_entry(dev);
+      // Use RAII wrapper for a device
+      UdevDevicePtr dev(udev_device_new_from_syspath(udev.get(), path));
+      if (!dev) {
+        spdlog::debug("Failed to get device from syspath: {}", path);
+        continue;  // Skip this device, continue with others
+      }
+
+      const auto properties_list = udev_device_get_properties_list_entry(dev.get());
       udev_list_entry* properties_list_entry;
       udev_list_entry_foreach(properties_list_entry, properties_list) {
         const auto properties_name =
             udev_list_entry_get_name(properties_list_entry);
         if (properties_name) {
           const auto value =
-              udev_device_get_property_value(dev, properties_name);
+              udev_device_get_property_value(dev.get(), properties_name);
           properties[properties_name] = value ? value : "";
           if (debug) {
             spdlog::debug("  {} = {}", properties_name, value ? value : "");
           }
         }
       }
-      udev_device_unref(dev);
+      // dev automatically cleaned up at the end of scope
 
       bool match = true;
       for (const auto& [key, value] : match_params) {
@@ -107,7 +168,7 @@ class Hidraw {
         results[path] = std::move(properties);
       }
     }
-    udev_unref(udev);
+    // enumerate and udev automatically cleaned up here
     return results;
   }
 
