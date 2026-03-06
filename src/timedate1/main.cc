@@ -35,7 +35,7 @@ int main() {
             promises[i].set_value(std::move(values));
           else
             promises[i].set_exception(
-                std::make_exception_ptr(std::move(*error)));
+                std::make_exception_ptr(*error));
         });
   }
 

@@ -30,7 +30,7 @@ int main() {
         if (!error)
           promise.set_value(std::move(values));
         else
-          promise.set_exception(std::make_exception_ptr(*std::move(error)));
+          promise.set_exception(std::make_exception_ptr(*error));
       });
 
   const auto properties = future.get();
