@@ -16,27 +16,36 @@
 #include "../utils/signal_handler.h"
 
 int main() {
-  installSignalHandlers();
+  try {
+    installSignalHandlers();
 
-  const auto connection = sdbus::createSystemBusConnection();
-  connection->enterEventLoopAsync();
+    const auto connection = sdbus::createSystemBusConnection();
+    connection->enterEventLoopAsync();
 
-  // UPowerClient client(*connection,
-  // "/org/freedesktop/UPower/devices/battery_ps_controller_battery_88o03o4co82o6bo29");
-  UPowerClient client(*connection);
+    // UPowerClient client(*connection,
+    // "/org/freedesktop/UPower/devices/battery_ps_controller_battery_88o03o4co82o6bo29");
+    UPowerClient client(*connection);
 
-  using namespace std::chrono_literals;
-  spdlog::info("UPower client running - Press Ctrl+C to exit");
+    using namespace std::chrono_literals;
+    spdlog::info("UPower client running - Press Ctrl+C to exit");
 
-  // Monitor loop with connection health checks every 30 seconds
-  auto result = monitorLoop(*connection, 30s, 100ms);
+    // Monitor loop with connection health checks every 30 seconds
+    auto result = monitorLoop(*connection, 30s, 100ms);
 
-  if (result) {
-    spdlog::error("Exiting due to: {}", *result);
-  } else {
-    spdlog::info("Shutting down...");
+    if (result) {
+      spdlog::error("Exiting due to: {}", *result);
+    } else {
+      spdlog::info("Shutting down...");
+    }
+
+    connection->leaveEventLoop();
+    return result ? 1 : 0;
+
+  } catch (const sdbus::Error& e) {
+    spdlog::error("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    return 1;
+  } catch (const std::exception& e) {
+    spdlog::error("Exception: {}", e.what());
+    return 1;
   }
-
-  connection->leaveEventLoop();
-  return result ? 1 : 0;
 }

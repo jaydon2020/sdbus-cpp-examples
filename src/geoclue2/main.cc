@@ -18,42 +18,51 @@
 #include "../utils/signal_handler.h"
 
 int main() {
-  installSignalHandlers();
+  try {
+    installSignalHandlers();
 
-  const auto connection = sdbus::createSystemBusConnection();
-  connection->enterEventLoopAsync();
+    const auto connection = sdbus::createSystemBusConnection();
+    connection->enterEventLoopAsync();
 
-  const GeoClue2Manager manager(
-      *connection, [&](const GeoClue2Location& location) {
-        const auto [Accuracy, Altitude, Description, Heading, Latitude,
-                    Longitude, Speed, Timestamp] = location.Properties();
-        spdlog::info("Timestamp: {}.{}", Timestamp.tv_sec, Timestamp.tv_nsec);
-        spdlog::info("Lat/Long: {}, {}", Latitude, Longitude);
-        spdlog::info("Heading: {}", Heading);
-        spdlog::info("Speed: {}", Speed);
-        spdlog::info("Accuracy: {}", Accuracy);
-        spdlog::info("Altitude: {}", Altitude);
-        spdlog::info("Description: {}", Description);
-      });
+    const GeoClue2Manager manager(
+        *connection, [&](const GeoClue2Location& location) {
+          const auto [Accuracy, Altitude, Description, Heading, Latitude,
+                      Longitude, Speed, Timestamp] = location.Properties();
+          spdlog::info("Timestamp: {}.{}", Timestamp.tv_sec, Timestamp.tv_nsec);
+          spdlog::info("Lat/Long: {}, {}", Latitude, Longitude);
+          spdlog::info("Heading: {}", Heading);
+          spdlog::info("Speed: {}", Speed);
+          spdlog::info("Accuracy: {}", Accuracy);
+          spdlog::info("Altitude: {}", Altitude);
+          spdlog::info("Description: {}", Description);
+        });
 
-  const auto& client = manager.Client();
+    const auto& client = manager.Client();
 
-  // `desktop id` must be set for Start to work
-  client->DesktopId("org.example.geoclue2");
-  client->Start();
+    // `desktop id` must be set for Start to work
+    client->DesktopId("org.example.geoclue2");
+    client->Start();
 
-  using namespace std::chrono_literals;
-  spdlog::info("GeoClue2 client running - Press Ctrl+C to exit");
+    using namespace std::chrono_literals;
+    spdlog::info("GeoClue2 client running - Press Ctrl+C to exit");
 
-  // Monitor loop with connection health checks every 30 seconds
-  auto result = monitorLoop(*connection, 30s, 100ms);
+    // Monitor loop with connection health checks every 30 seconds
+    auto result = monitorLoop(*connection, 30s, 100ms);
 
-  if (result) {
-    spdlog::error("Exiting due to: {}", *result);
-  } else {
-    spdlog::info("Shutting down...");
+    if (result) {
+      spdlog::error("Exiting due to: {}", *result);
+    } else {
+      spdlog::info("Shutting down...");
+    }
+
+    connection->leaveEventLoop();
+    return result ? 1 : 0;
+
+  } catch (const sdbus::Error& e) {
+    spdlog::error("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    return 1;
+  } catch (const std::exception& e) {
+    spdlog::error("Exception: {}", e.what());
+    return 1;
   }
-
-  connection->leaveEventLoop();
-  return result ? 1 : 0;
 }
