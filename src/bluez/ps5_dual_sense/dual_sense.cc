@@ -107,8 +107,14 @@ void DualSense::onInterfacesAdded(
         continue;
       }
 
-      std::scoped_lock lock(devices_mutex_);
-      if (!devices_.contains(objectPath)) {
+      std::string power_path_to_add;
+      std::string hidraw_device_key;
+      {
+        std::scoped_lock lock(devices_mutex_);
+        if (devices_.contains(objectPath)) {
+          continue;
+        }
+
         auto device = std::make_unique<Device1>(
             getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
             objectPath, properties);
@@ -117,34 +123,46 @@ void DualSense::onInterfacesAdded(
           auto [vid, pid, did] = props.modalias.value();
           spdlog::info("Adding: {}, {}, {}", vid, pid, did);
           if (vid == VENDOR_ID && pid == PRODUCT_ID) {
-            // if connected, paired, trusted, and bonded a hidraw device should
+            // if connected, paired, trusted, and bonded, a hidraw device should
             // be ready to use
             if (props.connected && props.paired && props.trusted) {
-              const auto dev_key =
+              hidraw_device_key =
                   create_device_key_from_serial_number(props.address);
-              if (HidDevicesContains(dev_key)) {
-                spdlog::info("Adding hidraw device: {}", dev_key);
-                if (!input_reader_) {
-                  input_reader_ =
-                      std::make_unique<InputReader>(GetHidDevice(dev_key));
-                  input_reader_->start();
-                }
-              }
             }
 
-            // Add UPower Display Device
-            if (std::string power_path = convert_mac_to_path(props.address);
-                !upower_clients_.contains(power_path)) {
-              upower_display_devices_mutex_.lock();
-              spdlog::info("[Add] UPower Display Device: {}", power_path);
-              upower_clients_[power_path] = std::make_unique<UPowerClient>(
-                  getProxy().getConnection(), sdbus::ObjectPath(power_path));
-              upower_display_devices_mutex_.unlock();
-            }
+            power_path_to_add = convert_mac_to_path(props.address);
           }
         }
 
         devices_[objectPath] = std::move(device);
+      }
+
+      if (!hidraw_device_key.empty()) {
+        std::string hidraw_device;
+        HidDevicesLock();
+        if (HidDevicesContains(hidraw_device_key)) {
+          hidraw_device = GetHidDevice(hidraw_device_key);
+        }
+        HidDevicesUnlock();
+
+        if (!hidraw_device.empty()) {
+          spdlog::info("Adding hidraw device: {}", hidraw_device_key);
+          if (!input_reader_) {
+            input_reader_ = std::make_unique<InputReader>(hidraw_device);
+            input_reader_->start();
+          }
+        }
+      }
+
+      // Avoid nested locking with devices_mutex_ + upower_display_devices_mutex_.
+      if (!power_path_to_add.empty()) {
+        std::scoped_lock power_lock(upower_display_devices_mutex_);
+        if (!upower_clients_.contains(power_path_to_add)) {
+          spdlog::info("[Add] UPower Display Device: {}", power_path_to_add);
+          upower_clients_[power_path_to_add] = std::make_unique<UPowerClient>(
+              getProxy().getConnection(),
+              sdbus::ObjectPath(power_path_to_add));
+        }
       }
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
       std::lock_guard lock(input1_mutex_);
@@ -169,10 +187,31 @@ void DualSense::onInterfacesRemoved(
         adapters_.erase(objectPath);
       }
     } else if (interface == org::bluez::Device1_proxy::INTERFACE_NAME) {
-      std::scoped_lock devices_lock(devices_mutex_);
-      if (devices_.contains(objectPath)) {
-        devices_[objectPath].reset();
-        devices_.erase(objectPath);
+      std::string power_path_to_remove;
+      {
+        std::scoped_lock devices_lock(devices_mutex_);
+        if (devices_.contains(objectPath)) {
+          auto& device = devices_[objectPath];
+          if (auto props = device->GetProperties(); props.modalias.has_value()) {
+            auto [vid, pid, did] = props.modalias.value();
+            spdlog::info("Removing: {}, {}, {}", vid, pid, did);
+            if (vid == VENDOR_ID && pid == PRODUCT_ID) {
+              power_path_to_remove = convert_mac_to_path(props.address);
+            }
+          }
+          device.reset();
+          devices_.erase(objectPath);
+        }
+      }
+
+      if (!power_path_to_remove.empty()) {
+        std::scoped_lock power_lock(upower_display_devices_mutex_);
+        if (upower_clients_.contains(power_path_to_remove)) {
+          spdlog::info("[Remove] UPower Display Device: {}", power_path_to_remove);
+          auto& power_device = upower_clients_[power_path_to_remove];
+          power_device.reset();
+          upower_clients_.erase(power_path_to_remove);
+        }
       }
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
       std::lock_guard lock(input1_mutex_);
@@ -180,30 +219,6 @@ void DualSense::onInterfacesRemoved(
         input1_[objectPath].reset();
         input1_.erase(objectPath);
       }
-    }
-  }
-  for (auto it = interfaces.begin(); it != interfaces.end(); ++it) {
-    std::scoped_lock lock(devices_mutex_);
-    if (devices_.contains(objectPath)) {
-      auto& device = devices_[objectPath];
-
-      if (auto props = device->GetProperties(); props.modalias.has_value()) {
-        auto [vid, pid, did] = props.modalias.value();
-        spdlog::info("Removing: {}, {}, {}", vid, pid, did);
-        if (vid == VENDOR_ID && pid == PRODUCT_ID) {
-          if (std::string power_path = convert_mac_to_path(props.address);
-              upower_clients_.contains(power_path)) {
-            std::scoped_lock power_lock(upower_display_devices_mutex_);
-            spdlog::info("[Remove] UPower Display Device: {}", power_path);
-            auto& power_device = upower_clients_[power_path];
-            power_device.reset();
-            upower_clients_.erase(power_path);
-          }
-        }
-      }
-
-      device.reset();
-      devices_.erase(objectPath);
     }
   }
 }

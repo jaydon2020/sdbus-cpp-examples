@@ -110,8 +110,13 @@ void HoripadSteam::onInterfacesAdded(
         continue;
       }
 
-      std::scoped_lock lock(devices_mutex_);
-      if (!devices_.contains(objectPath)) {
+      std::string hidraw_device_key;
+      {
+        std::scoped_lock lock(devices_mutex_);
+        if (devices_.contains(objectPath)) {
+          continue;
+        }
+
         auto device = std::make_unique<Device1>(
             getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
             objectPath, properties);
@@ -121,23 +126,30 @@ void HoripadSteam::onInterfacesAdded(
           spdlog::info("Adding: {}, {}, {}", vid, pid, did);
           if (vid == VENDOR_ID && pid == PRODUCT_ID) {
             if (props.connected && props.paired && props.trusted) {
-              const auto dev_key =
+              hidraw_device_key =
                   create_device_key_from_serial_number(props.address);
-              HidDevicesLock();
-              if (HidDevicesContains(dev_key)) {
-                spdlog::info("Adding hidraw device: {}", dev_key);
-                if (!input_reader_) {
-                  input_reader_ =
-                      std::make_unique<InputReader>(GetHidDevice(dev_key));
-                  input_reader_->start();
-                }
-              }
-              HidDevicesUnlock();
             }
           }
         }
 
         devices_[objectPath] = std::move(device);
+      }
+
+      if (!hidraw_device_key.empty()) {
+        std::string hidraw_device;
+        HidDevicesLock();
+        if (HidDevicesContains(hidraw_device_key)) {
+          hidraw_device = GetHidDevice(hidraw_device_key);
+        }
+        HidDevicesUnlock();
+
+        if (!hidraw_device.empty()) {
+          spdlog::info("Adding hidraw device: {}", hidraw_device_key);
+          if (!input_reader_) {
+            input_reader_ = std::make_unique<InputReader>(hidraw_device);
+            input_reader_->start();
+          }
+        }
       }
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
       std::lock_guard lock(input1_mutex_);
@@ -173,14 +185,6 @@ void HoripadSteam::onInterfacesRemoved(
         input1_[objectPath].reset();
         input1_.erase(objectPath);
       }
-    }
-  }
-  for (auto it = interfaces.begin(); it != interfaces.end(); ++it) {
-    std::scoped_lock lock(devices_mutex_);
-    if (devices_.contains(objectPath)) {
-      auto& device = devices_[objectPath];
-      device.reset();
-      devices_.erase(objectPath);
     }
   }
 }
