@@ -12,21 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <spdlog/spdlog.h>
+#include "../../utils/signal_handler.h"
 #include "xbox_controller.h"
 
 int main() {
-  spdlog::set_level(spdlog::level::debug);
-  spdlog::flush_every(std::chrono::seconds(5));
+  try {
+    installSignalHandlers();
 
-  const auto connection = sdbus::createSystemBusConnection();
-  connection->enterEventLoopAsync();
+    const auto connection = sdbus::createSystemBusConnection();
+    connection->enterEventLoopAsync();
 
-  XboxController client(*connection);
+    XboxController client(*connection);
 
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(120000ms);
-  connection->leaveEventLoop();
+    LOG_INFO("Xbox controller client running - Press Ctrl+C to exit");
 
-  return 0;
+    auto result = monitorLoop(*connection);
+
+    if (result) {
+      LOG_ERROR("Exiting due to: {}", *result);
+    } else {
+      LOG_INFO("Shutting down...");
+    }
+
+    connection->leaveEventLoop();
+    return result ? 1 : 0;
+
+  } catch (const sdbus::Error& e) {
+    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    return 1;
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception: {}", e.what());
+    return 1;
+  }
 }

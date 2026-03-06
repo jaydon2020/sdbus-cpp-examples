@@ -19,6 +19,7 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 
+#include "../../utils/logging.h"
 #include "../hidraw.hpp"
 #include "input_reader.h"
 
@@ -26,13 +27,13 @@ InputReader::InputReader(std::string device)
     : device_(std::move(device)), stop_flag_(false) {}
 
 void InputReader::start() {
-  spdlog::debug("InputReader start: {}", device_);
+  LOG_DEBUG("InputReader start: {}", device_);
   stop_flag_ = false;
   read_input();
 }
 
 void InputReader::stop() {
-  spdlog::debug("InputReader stop: {}", device_);
+  LOG_DEBUG("InputReader stop: {}", device_);
   stop_flag_ = true;
 }
 
@@ -42,71 +43,71 @@ InputReader::~InputReader() {
 
 // NOLINTNEXTLINE(readability-static-accessed-through-instance)
 InputReader::Task InputReader::read_input() {
-  spdlog::debug("hidraw device: {}", device_);
+  LOG_DEBUG("hidraw device: {}", device_);
 
   const int fd = open(device_.c_str(), O_RDWR);
 
   while (true) {
     if (fd < 0) {
-      spdlog::error("unable to open device");
+      LOG_ERROR("unable to open device");
       break;
     }
 
     // Raw Info
     hidraw_devinfo raw_dev_info{};
     if (const auto res = ioctl(fd, HIDIOCGRAWINFO, &raw_dev_info); res < 0) {
-      spdlog::error("HIDIOCGRAWINFO");
+      LOG_ERROR("HIDIOCGRAWINFO");
       break;
     }
-    spdlog::info("bustype: {}", Hidraw::bus_str(raw_dev_info.bustype));
-    spdlog::info("Vendor ID: {:04X}", raw_dev_info.vendor);
-    spdlog::info("Product ID: {:04X}", raw_dev_info.product);
+    LOG_INFO("bustype: {}", Hidraw::bus_str(raw_dev_info.bustype));
+    LOG_INFO("Vendor ID: {:04X}", raw_dev_info.vendor);
+    LOG_INFO("Product ID: {:04X}", raw_dev_info.product);
 
     // Raw Name
     char buf[256]{};
     auto res = ioctl(fd, HIDIOCGRAWNAME(sizeof(buf)), buf);
     if (res < 0) {
-      spdlog::error("HIDIOCGRAWNAME");
+      LOG_ERROR("HIDIOCGRAWNAME");
       break;
     }
-    spdlog::info("HID Name: {}", buf);
+    LOG_INFO("HID Name: {}", buf);
 
     // Raw Physical Location
     res = ioctl(fd, HIDIOCGRAWPHYS(sizeof(buf)), buf);
     if (res < 0) {
-      spdlog::error("HIDIOCGRAWPHYS");
+      LOG_ERROR("HIDIOCGRAWPHYS");
       break;
     }
-    spdlog::info("HID Physical Location: {}", buf);
+    LOG_INFO("HID Physical Location: {}", buf);
 
     // Report Descriptor Size
     int desc_size = 0;
     res = ioctl(fd, HIDIOCGRDESCSIZE, &desc_size);
     if (res < 0) {
-      spdlog::error("HIDIOCGRDESCSIZE");
+      LOG_ERROR("HIDIOCGRDESCSIZE");
       break;
     }
-    spdlog::info("Report Descriptor Size: {}", desc_size);
+    LOG_INFO("Report Descriptor Size: {}", desc_size);
 
     // Report Descriptor
     hidraw_report_descriptor rpt_desc{};
     rpt_desc.size = desc_size;
     res = ioctl(fd, HIDIOCGRDESC, &rpt_desc);
     if (res < 0) {
-      spdlog::error("HIDIOCGRDESC");
+      LOG_ERROR("HIDIOCGRDESC");
       break;
     }
 
     std::ostringstream os;
     os << "Report Descriptor\n";
     os << CustomHexdump<400, false>(rpt_desc.value, rpt_desc.size);
-    spdlog::info(os.str());
+    LOG_INFO(os.str());
 
     while (!stop_flag_) {
       std::uint8_t buffer[sizeof(inputReport12_t)];
       ssize_t result = 0;
       if (result = read(fd, &buffer[0], sizeof(inputReport12_t)); result < 0) {
-        spdlog::error("read failed: {}", strerror(errno));
+        LOG_ERROR("read failed: {}", strerror(errno));
         break;
       }
 
@@ -128,7 +129,7 @@ InputReader::Task InputReader::read_input() {
               reinterpret_cast<inputReport14_t*>(buffer);
           PrintInputReport14(*input_report14);
         } else {
-          spdlog::error("Unknown report id: {}", buffer[0]);
+          LOG_ERROR("Unknown report id: {}", buffer[0]);
         }
       }
     }
@@ -165,52 +166,52 @@ std::string InputReader::dpad_to_string(const Direction dpad) {
 }
 
 void InputReader::PrintInputReport7(const inputReport07_t& input_report07) {
-  spdlog::info("Stick L/R: [{},{}] [{},{}] ", input_report07.GD_GamepadX,
-               input_report07.GD_GamepadY, input_report07.GD_GamepadZ,
-               input_report07.GD_GamepadRz);
-  spdlog::info("L1/L2: {}, {}", input_report07.SIM_GamepadBrake,
-               input_report07.SIM_GamepadAccelerator);
-  spdlog::info("D-PAD: {}", dpad_to_string(static_cast<Direction>(
-                                input_report07.GD_GamepadHatSwitch)));
-  spdlog::info("A: {}", input_report07.BTN_GamepadButton1);
-  spdlog::info("B: {}", input_report07.BTN_GamepadButton2);
-  spdlog::info("Quick Access: {}", input_report07.BTN_GamepadButton3);
-  spdlog::info("X: {}", input_report07.BTN_GamepadButton4);
-  spdlog::info("Y: {}", input_report07.BTN_GamepadButton5);
-  spdlog::info("M1: {}", input_report07.BTN_GamepadButton6);
-  spdlog::info("L1: {}", input_report07.BTN_GamepadButton7);
-  spdlog::info("R1: {}", input_report07.BTN_GamepadButton8);
-  spdlog::info("L2: {}", input_report07.BTN_GamepadButton9);
-  spdlog::info("R2: {}", input_report07.BTN_GamepadButton10);
-  spdlog::info("View: {}", input_report07.BTN_GamepadButton11);
-  spdlog::info("Menu: {}", input_report07.BTN_GamepadButton12);
-  spdlog::info("Home: {}", input_report07.BTN_GamepadButton13);
-  spdlog::info("Left Stick Btn: {}", input_report07.BTN_GamepadButton14);
-  spdlog::info("Right Stick Btn: {}", input_report07.BTN_GamepadButton15);
-  spdlog::info("M2: {}", input_report07.BTN_GamepadButton16);
-  spdlog::info("Button 17: {}", input_report07.BTN_GamepadButton17);
-  spdlog::info("Button 18: {}", input_report07.BTN_GamepadButton18);
-  spdlog::info("L4: {}", input_report07.BTN_GamepadButton19);
-  spdlog::info("R4: {}", input_report07.BTN_GamepadButton20);
+  LOG_INFO("Stick L/R: [{},{}] [{},{}] ", input_report07.GD_GamepadX,
+           input_report07.GD_GamepadY, input_report07.GD_GamepadZ,
+           input_report07.GD_GamepadRz);
+  LOG_INFO("L1/L2: {}, {}", input_report07.SIM_GamepadBrake,
+           input_report07.SIM_GamepadAccelerator);
+  LOG_INFO("D-PAD: {}", dpad_to_string(static_cast<Direction>(
+                            input_report07.GD_GamepadHatSwitch)));
+  LOG_INFO("A: {}", input_report07.BTN_GamepadButton1);
+  LOG_INFO("B: {}", input_report07.BTN_GamepadButton2);
+  LOG_INFO("Quick Access: {}", input_report07.BTN_GamepadButton3);
+  LOG_INFO("X: {}", input_report07.BTN_GamepadButton4);
+  LOG_INFO("Y: {}", input_report07.BTN_GamepadButton5);
+  LOG_INFO("M1: {}", input_report07.BTN_GamepadButton6);
+  LOG_INFO("L1: {}", input_report07.BTN_GamepadButton7);
+  LOG_INFO("R1: {}", input_report07.BTN_GamepadButton8);
+  LOG_INFO("L2: {}", input_report07.BTN_GamepadButton9);
+  LOG_INFO("R2: {}", input_report07.BTN_GamepadButton10);
+  LOG_INFO("View: {}", input_report07.BTN_GamepadButton11);
+  LOG_INFO("Menu: {}", input_report07.BTN_GamepadButton12);
+  LOG_INFO("Home: {}", input_report07.BTN_GamepadButton13);
+  LOG_INFO("Left Stick Btn: {}", input_report07.BTN_GamepadButton14);
+  LOG_INFO("Right Stick Btn: {}", input_report07.BTN_GamepadButton15);
+  LOG_INFO("M2: {}", input_report07.BTN_GamepadButton16);
+  LOG_INFO("Button 17: {}", input_report07.BTN_GamepadButton17);
+  LOG_INFO("Button 18: {}", input_report07.BTN_GamepadButton18);
+  LOG_INFO("L4: {}", input_report07.BTN_GamepadButton19);
+  LOG_INFO("R4: {}", input_report07.BTN_GamepadButton20);
 }
 
 void InputReader::PrintInputReport10(const inputReport10_t& input_report10) {
   std::ostringstream os;
   os << CustomHexdump<400, false>(input_report10.VEN_Gamepad0024,
                                   sizeof(inputReport10_t));
-  spdlog::info("Input Report 10: {}", os.str());
+  LOG_INFO("Input Report 10: {}", os.str());
 }
 
 void InputReader::PrintInputReport12(const inputReport12_t& input_report12) {
   std::ostringstream os;
   os << CustomHexdump<400, false>(input_report12.VEN_Gamepad0022,
                                   sizeof(inputReport10_t));
-  spdlog::info("Input Report 10: {}", os.str());
+  LOG_INFO("Input Report 10: {}", os.str());
 }
 
 void InputReader::PrintInputReport14(const inputReport14_t& input_report14) {
   std::ostringstream os;
   os << CustomHexdump<400, false>(input_report14.VEN_Gamepad0026,
                                   sizeof(inputReport10_t));
-  spdlog::info("Input Report 14: {}", os.str());
+  LOG_INFO("Input Report 14: {}", os.str());
 }

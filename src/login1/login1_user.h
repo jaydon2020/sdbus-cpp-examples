@@ -38,8 +38,8 @@ class Login1User final
               onPropertiesChanged(
                   sdbus::InterfaceName(User_proxy::INTERFACE_NAME), values, {});
             } else
-              spdlog::error("login1.User: {} - {}", error->getName(),
-                            error->getMessage());
+              LOG_ERROR("login1.User: {} - {}", error->getName(),
+                        error->getMessage());
           });
     }
   }
@@ -56,10 +56,10 @@ class Login1User final
       os << "========================================" << std::endl;
       Utils::append_properties(props, os);
       os << "========================================" << std::endl;
-      spdlog::info(os.str());
+      LOG_INFO(os.str());
     } catch (const sdbus::Error& e) {
-      spdlog::error("Failed to get user properties for {}: {} - {}",
-                    object_path_, e.getName(), e.getMessage());
+      LOG_ERROR("Failed to get user properties for {}: {} - {}", object_path_,
+                e.getName(), e.getMessage());
     }
   }
 

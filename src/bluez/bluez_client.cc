@@ -14,6 +14,8 @@
 
 #include "bluez_client.h"
 
+#include "../utils/property_utils.h"
+#include "../utils/resource_limits.h"
 #include "battery_provider_manager1.h"
 #include "gatt_manager1.h"
 #include "gatt_service1.h"
@@ -54,6 +56,12 @@ void BluezClient::onInterfacesAdded(
     if (interface == org::bluez::Adapter1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(adapters_mutex_);
       if (!adapters_.contains(objectPath)) {
+        if (resource_limits::IsAtCapacity(adapters_.size(),
+                                          resource_limits::kMaxAdapters)) {
+          LOG_WARN("Skipping Adapter1 {}: resource limit reached ({}/{})",
+                   objectPath, adapters_.size(), resource_limits::kMaxAdapters);
+          continue;
+        }
         auto adapter1 = std::make_unique<Adapter1>(
             getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
             objectPath, properties);
@@ -62,14 +70,27 @@ void BluezClient::onInterfacesAdded(
     } else if (interface == org::bluez::Device1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(devices_mutex_);
       if (!devices_.contains(objectPath)) {
+        if (resource_limits::IsAtCapacity(devices_.size(),
+                                          resource_limits::kMaxDevices)) {
+          LOG_WARN("Skipping Device1 {}: resource limit reached ({}/{})",
+                   objectPath, devices_.size(), resource_limits::kMaxDevices);
+          continue;
+        }
         auto device = std::make_unique<Device1>(
             getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
             objectPath, properties);
         devices_[objectPath] = std::move(device);
       }
     } else if (interface == org::bluez::GattService1_proxy::INTERFACE_NAME) {
-      std::scoped_lock lock(gatt_services_mutex_);
+      std::scoped_lock lock(gatt_mutex_);
       if (!gatt_services_.contains(objectPath)) {
+        if (resource_limits::IsAtCapacity(gatt_services_.size(),
+                                          resource_limits::kMaxGattServices)) {
+          LOG_WARN("Skipping GattService1 {}: resource limit reached ({}/{})",
+                   objectPath, gatt_services_.size(),
+                   resource_limits::kMaxGattServices);
+          continue;
+        }
         auto device = std::make_unique<GattService1>(
             getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
             objectPath, properties);
@@ -77,16 +98,54 @@ void BluezClient::onInterfacesAdded(
       }
     } else if (interface ==
                org::bluez::GattCharacteristic1_proxy::INTERFACE_NAME) {
-      std::scoped_lock lock(gatt_services_mutex_);
+      std::scoped_lock lock(gatt_mutex_);
       auto key = sdbus::MemberName("Service");
-      auto object_path = properties.at(key).get<sdbus::ObjectPath>();
+
+      // Safely get the Service property
+      auto object_path =
+          property_utils::getProperty<sdbus::ObjectPath>(properties, key);
+      if (!object_path) {
+        LOG_WARN("GattCharacteristic1 at {} missing 'Service' property",
+                 objectPath);
+        continue;  // Skip this characteristic
+      }
+
+      if (!gatt_characteristics_.contains(objectPath) &&
+          resource_limits::IsAtCapacity(
+              gatt_characteristics_.size(),
+              resource_limits::kMaxGattCharacteristics)) {
+        LOG_WARN(
+            "Skipping GattCharacteristic1 {}: resource limit reached ({}/{})",
+            objectPath, gatt_characteristics_.size(),
+            resource_limits::kMaxGattCharacteristics);
+        continue;
+      }
+
       gatt_characteristics_[objectPath] = std::make_unique<GattCharacteristic1>(
           getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
           objectPath, properties);
     } else if (interface == org::bluez::GattDescriptor1_proxy::INTERFACE_NAME) {
-      std::scoped_lock lock(gatt_services_mutex_);
+      std::scoped_lock lock(gatt_mutex_);
       auto key = sdbus::MemberName("Characteristic");
-      auto object_path = properties.at(key).get<sdbus::ObjectPath>();
+
+      // Safely get the Characteristic property
+      auto object_path =
+          property_utils::getProperty<sdbus::ObjectPath>(properties, key);
+      if (!object_path) {
+        LOG_WARN("GattDescriptor1 at {} missing 'Characteristic' property",
+                 objectPath);
+        continue;  // Skip this descriptor
+      }
+
+      if (!gatt_descriptors_.contains(objectPath) &&
+          resource_limits::IsAtCapacity(gatt_descriptors_.size(),
+                                        resource_limits::kMaxGattDescriptors)) {
+        LOG_WARN("Skipping GattDescriptor1 {}: resource limit reached ({}/{})",
+                 objectPath, gatt_descriptors_.size(),
+                 resource_limits::kMaxGattDescriptors);
+        continue;
+      }
+
       gatt_descriptors_[objectPath] = std::make_unique<GattDescriptor1>(
           getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
           objectPath, properties);
@@ -98,6 +157,13 @@ void BluezClient::onInterfacesAdded(
     } else if (interface == org::bluez::Battery1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(battery1_mutex_);
       if (!battery1_.contains(objectPath)) {
+        if (resource_limits::IsAtCapacity(
+                battery1_.size(), resource_limits::kMaxBatteryEntries)) {
+          LOG_WARN("Skipping Battery1 {}: resource limit reached ({}/{})",
+                   objectPath, battery1_.size(),
+                   resource_limits::kMaxBatteryEntries);
+          continue;
+        }
         auto device = std::make_unique<Battery1>(
             getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
             objectPath);
@@ -110,6 +176,13 @@ void BluezClient::onInterfacesAdded(
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
       std::lock_guard lock(input1_mutex_);
       if (!input1_.contains(objectPath)) {
+        if (resource_limits::IsAtCapacity(input1_.size(),
+                                          resource_limits::kMaxInputEntries)) {
+          LOG_WARN("Skipping Input1 {}: resource limit reached ({}/{})",
+                   objectPath, input1_.size(),
+                   resource_limits::kMaxInputEntries);
+          continue;
+        }
         input1_[objectPath] = std::make_unique<Input1>(
             getProxy().getConnection(),
             sdbus::ServiceName(org::bluez::Input1_proxy::INTERFACE_NAME),
@@ -130,7 +203,7 @@ void BluezClient::onInterfacesAdded(
           objectPath);
     }
   }
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }
 
 void BluezClient::onInterfacesRemoved(
@@ -139,41 +212,48 @@ void BluezClient::onInterfacesRemoved(
   std::ostringstream os;
   os << std::endl;
   for (const auto& interface : interfaces) {
+    os << "[" << objectPath << "] Remove - " << interface << std::endl;
+
     if (interface == org::bluez::Adapter1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(adapters_mutex_);
-      if (!adapters_.contains(objectPath)) {
-        if (adapters_.contains(objectPath)) {
-          adapters_[objectPath].reset();
-          adapters_.erase(objectPath);
-        }
+      if (adapters_.contains(objectPath)) {
+        adapters_[objectPath].reset();
+        adapters_.erase(objectPath);
       }
     } else if (interface == org::bluez::Device1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(devices_mutex_);
-      if (!devices_.contains(objectPath)) {
-        if (devices_.contains(objectPath)) {
-          devices_[objectPath].reset();
-          devices_.erase(objectPath);
-        }
+      if (devices_.contains(objectPath)) {
+        devices_[objectPath].reset();
+        devices_.erase(objectPath);
       }
     } else if (interface == org::bluez::GattService1_proxy::INTERFACE_NAME) {
-      std::scoped_lock lock(gatt_services_mutex_);
-      if (!gatt_services_.contains(objectPath)) {
-        if (gatt_services_.contains(objectPath)) {
-          gatt_services_[objectPath].reset();
-          gatt_services_.erase(objectPath);
-        }
+      std::scoped_lock lock(gatt_mutex_);
+      if (gatt_services_.contains(objectPath)) {
+        gatt_services_[objectPath].reset();
+        gatt_services_.erase(objectPath);
+      }
+    } else if (interface ==
+               org::bluez::GattCharacteristic1_proxy::INTERFACE_NAME) {
+      std::scoped_lock lock(gatt_mutex_);
+      if (gatt_characteristics_.contains(objectPath)) {
+        gatt_characteristics_[objectPath].reset();
+        gatt_characteristics_.erase(objectPath);
+      }
+    } else if (interface == org::bluez::GattDescriptor1_proxy::INTERFACE_NAME) {
+      std::scoped_lock lock(gatt_mutex_);
+      if (gatt_descriptors_.contains(objectPath)) {
+        gatt_descriptors_[objectPath].reset();
+        gatt_descriptors_.erase(objectPath);
       }
     } else if (interface == org::bluez::Battery1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(battery1_mutex_);
-      if (!battery1_.contains(objectPath)) {
-        if (battery1_.contains(objectPath)) {
-          battery1_[objectPath].reset();
-          battery1_.erase(objectPath);
-        }
+      if (battery1_.contains(objectPath)) {
+        battery1_[objectPath].reset();
+        battery1_.erase(objectPath);
       }
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
       std::lock_guard lock(input1_mutex_);
-      if (!input1_.contains(objectPath)) {
+      if (input1_.contains(objectPath)) {
         input1_[objectPath].reset();
         input1_.erase(objectPath);
       }
@@ -191,16 +271,5 @@ void BluezClient::onInterfacesRemoved(
       network_server1_.reset();
     }
   }
-  for (auto it = interfaces.begin(); it != interfaces.end(); ++it) {
-    os << "[" << objectPath << "] Remove - " << *it;
-    if (std::next(it) != interfaces.end()) {
-      os << std::endl;
-    }
-    std::scoped_lock lock(devices_mutex_);
-    if (devices_.contains(objectPath)) {
-      devices_[objectPath].reset();
-      devices_.erase(objectPath);
-    }
-  }
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }

@@ -14,6 +14,7 @@
 
 #include "timedate1_client.h"
 
+#include "../utils/logging.h"
 #include "../utils/utils.h"
 
 int main() {
@@ -34,8 +35,7 @@ int main() {
           if (!error)
             promises[i].set_value(std::move(values));
           else
-            promises[i].set_exception(
-                std::make_exception_ptr(std::move(*error)));
+            promises[i].set_exception(std::make_exception_ptr(*error));
         });
   }
 
@@ -45,7 +45,7 @@ int main() {
       client.updateTimedate1(properties);
       client.printTimedate1();
     } catch (const std::exception& e) {
-      spdlog::error("Error: {}", e.what());
+      LOG_ERROR("Error: {}", e.what());
     }
   }
 

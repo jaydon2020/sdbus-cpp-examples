@@ -16,6 +16,7 @@
 #define SRC_LOGIN1_LOGIN1_SESSION_H
 
 #include "../proxy/org/freedesktop/login1/Session/session_proxy.h"
+#include "../utils/logging.h"
 #include "../utils/utils.h"
 
 class Login1Session final
@@ -39,8 +40,8 @@ class Login1Session final
                   sdbus::InterfaceName(Session_proxy::INTERFACE_NAME), values,
                   {});
             } else
-              spdlog::error("login1.Session: {} - {}", error->getName(),
-                            error->getMessage());
+              LOG_ERROR("login1.Session: {} - {}", error->getName(),
+                        error->getMessage());
           });
     }
   }
@@ -57,10 +58,10 @@ class Login1Session final
       os << "========================================" << std::endl;
       Utils::append_properties(props, os);
       os << "========================================" << std::endl;
-      spdlog::info(os.str());
+      LOG_INFO(os.str());
     } catch (const sdbus::Error& e) {
-      spdlog::error("Failed to get session properties for {}: {} - {}",
-                    object_path_, e.getName(), e.getMessage());
+      LOG_ERROR("Failed to get session properties for {}: {} - {}",
+                object_path_, e.getName(), e.getMessage());
     }
   }
 
@@ -81,20 +82,20 @@ class Login1Session final
   void onPauseDevice(const uint32_t& major,
                      const uint32_t& minor,
                      const std::string& type) override {
-    spdlog::info("[Login1Session] onPauseDevice: major={}, minor={}, type={}",
-                 major, minor, type);
+    LOG_INFO("[Login1Session] onPauseDevice: major={}, minor={}, type={}",
+             major, minor, type);
   }
 
   void onResumeDevice(const uint32_t& major,
                       const uint32_t& minor,
                       const sdbus::UnixFd& fd) override {
-    spdlog::info("[Login1Session] onResumeDevice: major={}, minor={}, fd={}",
-                 major, minor, fd.get());
+    LOG_INFO("[Login1Session] onResumeDevice: major={}, minor={}, fd={}", major,
+             minor, fd.get());
   }
 
-  void onLock() override { spdlog::info("[Login1Session] onLock"); }
+  void onLock() override { LOG_INFO("[Login1Session] onLock"); }
 
-  void onUnlock() override { spdlog::info("[Login1Session] onUnlock"); }
+  void onUnlock() override { LOG_INFO("[Login1Session] onUnlock"); }
 };
 
 #endif  // SRC_LOGIN1_LOGIN1_SESSION_H

@@ -14,8 +14,10 @@
 
 #include "udisks2_manager.h"
 
-#include "../utils/utils.h"
 #include "udisks2_manager_nvme.h"
+
+#include "../utils/logging.h"
+#include "../utils/utils.h"
 
 UDisks2Manager::UDisks2Manager(sdbus::IConnection& connection)
     : ProxyInterfaces(connection,
@@ -46,7 +48,7 @@ void UDisks2Manager::onInterfacesAdded(
     std::ostringstream os;
     os << std::endl;
     Utils::append_properties(properties, os);
-    spdlog::info("[{}] Add - {}\n{}", objectPath, interface, os.str());
+    LOG_INFO("[{}] Add - {}\n{}", objectPath, interface, os.str());
     if ("org.freedesktop.UDisks2.Manager" == interface) {
       continue;
     }
@@ -102,7 +104,7 @@ void UDisks2Manager::onInterfacesAdded(
             getProxy().getConnection(), objectPath);
       }
     } else {
-      spdlog::info("not handled interface: {}", interface);
+      LOG_INFO("not handled interface: {}", interface);
     }
   }
 }
@@ -111,6 +113,6 @@ void UDisks2Manager::onInterfacesRemoved(
     const sdbus::ObjectPath& objectPath,
     const std::vector<sdbus::InterfaceName>& interfaces) {
   for (const auto& interface : interfaces) {
-    spdlog::info("[{}] Remove - {}", objectPath, interface);
+    LOG_INFO("[{}] Remove - {}", objectPath, interface);
   }
 }

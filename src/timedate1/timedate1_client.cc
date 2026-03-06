@@ -16,6 +16,7 @@
 
 #include <iomanip>
 
+#include "../utils/logging.h"
 #include "../utils/utils.h"
 
 Timedate1Client::Timedate1Client(sdbus::IConnection& connection)
@@ -82,5 +83,5 @@ void Timedate1Client::printTimedate1() const {
   os << "\tRTCTimeUSec: " << timedate1_.RTCTimeUSec << std::endl;
   appendTimeUSecAsDate(timedate1_.RTCTimeUSec, os);
 
-  spdlog::info("\n{}", os.str());
+  LOG_INFO("\n{}", os.str());
 }

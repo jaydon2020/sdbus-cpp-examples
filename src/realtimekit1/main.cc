@@ -12,27 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "../utils/logging.h"
 #include "realtimekit1_manager_client.h"
 
 #include <sdbus-c++/sdbus-c++.h>
-#include <spdlog/spdlog.h>
 
 extern void exerciseRealtime(RealtimeKit1ManagerClient&);
 
 int main() {
   try {
-    auto connection = sdbus::createSystemBusConnection();
-    auto proxy = sdbus::createProxy(
+    const auto connection = sdbus::createSystemBusConnection();
+    const auto proxy = sdbus::createProxy(
         *connection, sdbus::ServiceName("org.freedesktop.RealtimeKit1"),
         sdbus::ObjectPath("/org/freedesktop/RealtimeKit1"));
     RealtimeKit1ManagerClient client(*proxy);
     exerciseRealtime(client);
-    spdlog::info("RealtimeKit1 example complete");
+    LOG_INFO("RealtimeKit1 example complete");
   } catch (const sdbus::Error& e) {
-    spdlog::error("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
     return 1;
   } catch (const std::exception& e) {
-    spdlog::error("Exception: {}", e.what());
+    LOG_ERROR("Exception: {}", e.what());
     return 1;
   }
   return 0;

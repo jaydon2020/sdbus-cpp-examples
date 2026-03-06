@@ -12,17 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "../utils/signal_handler.h"
 #include "networkmanager_client.h"
 
 int main() {
-  const auto connection = sdbus::createSystemBusConnection();
-  connection->enterEventLoopAsync();
+  try {
+    installSignalHandlers();
 
-  NetworkManagerClient client(*connection);
+    const auto connection = sdbus::createSystemBusConnection();
+    connection->enterEventLoopAsync();
 
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(120000ms);
-  connection->leaveEventLoop();
+    NetworkManagerClient client(*connection);
 
-  return 0;
+    LOG_INFO("NetworkManager monitor daemon running - Press Ctrl+C to exit");
+
+    auto result = monitorLoop(*connection);
+
+    if (result) {
+      LOG_ERROR("Exiting due to: {}", *result);
+    } else {
+      LOG_INFO("Shutting down...");
+    }
+
+    connection->leaveEventLoop();
+    return result ? 1 : 0;
+
+  } catch (const sdbus::Error& e) {
+    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    return 1;
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception: {}", e.what());
+    return 1;
+  }
 }

@@ -14,35 +14,53 @@
 
 #include <chrono>
 
+#include "../utils/signal_handler.h"
 #include "geoclue2_manager.h"
 
 int main() {
-  const auto connection = sdbus::createSystemBusConnection();
-  connection->enterEventLoopAsync();
+  try {
+    installSignalHandlers();
 
-  const GeoClue2Manager manager(
-      *connection, [&](const GeoClue2Location& location) {
-        const auto [Accuracy, Altitude, Description, Heading, Latitude,
-                    Longitude, Speed, Timestamp] = location.Properties();
-        spdlog::info("Timestamp: {}.{}", Timestamp.tv_sec, Timestamp.tv_nsec);
-        spdlog::info("Lat/Long: {}, {}", Latitude, Longitude);
-        spdlog::info("Heading: {}", Heading);
-        spdlog::info("Speed: {}", Speed);
-        spdlog::info("Accuracy: {}", Accuracy);
-        spdlog::info("Altitude: {}", Altitude);
-        spdlog::info("Description: {}", Description);
-      });
+    const auto connection = sdbus::createSystemBusConnection();
+    connection->enterEventLoopAsync();
 
-  const auto& client = manager.Client();
+    const GeoClue2Manager manager(
+        *connection, [&](const GeoClue2Location& location) {
+          const auto [Accuracy, Altitude, Description, Heading, Latitude,
+                      Longitude, Speed, Timestamp] = location.Properties();
+          LOG_INFO("Timestamp: {}.{}", Timestamp.tv_sec, Timestamp.tv_nsec);
+          LOG_INFO("Lat/Long: {}, {}", Latitude, Longitude);
+          LOG_INFO("Heading: {}", Heading);
+          LOG_INFO("Speed: {}", Speed);
+          LOG_INFO("Accuracy: {}", Accuracy);
+          LOG_INFO("Altitude: {}", Altitude);
+          LOG_INFO("Description: {}", Description);
+        });
 
-  // `desktop id` must be set for Start to work
-  client->DesktopId("org.example.geoclue2");
-  client->Start();
+    const auto& client = manager.Client();
 
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(30000ms);
-  manager.Client()->Stop();
-  connection->leaveEventLoop();
+    // `desktop id` must be set for Start to work
+    client->DesktopId("org.example.geoclue2");
+    client->Start();
 
-  return 0;
+    LOG_INFO("Geoclue2 monitor daemon running - Press Ctrl+C to exit");
+
+    auto result = monitorLoop(*connection);
+
+    if (result) {
+      LOG_ERROR("Exiting due to: {}", *result);
+    } else {
+      LOG_INFO("Shutting down...");
+    }
+
+    connection->leaveEventLoop();
+    return result ? 1 : 0;
+
+  } catch (const sdbus::Error& e) {
+    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    return 1;
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception: {}", e.what());
+    return 1;
+  }
 }

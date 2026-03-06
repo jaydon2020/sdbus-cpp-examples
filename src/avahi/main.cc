@@ -14,6 +14,7 @@
 
 #include "avahi_server.h"
 
+#include "../utils/logging.h"
 #include "../utils/utils.h"
 
 int main() {
@@ -23,15 +24,15 @@ int main() {
   if (const auto names = Utils::ListNames(*connection);
       Utils::isServicePresent(names, "org.freedesktop.Avahi")) {
     AvahiServer server(*connection);
-    spdlog::info("API Version: {}", server.GetAPIVersion());
-    spdlog::info("Domain Name: {}", server.GetDomainName());
-    spdlog::info("Host Name: {}", server.GetHostName());
-    spdlog::info("FQDN: {}", server.GetHostNameFqdn());
-    spdlog::info("Local Service Cookie: {}", server.GetLocalServiceCookie());
-    spdlog::info("State: {}", server.GetState());
-    spdlog::info("Version: {}", server.GetVersionString());
-    spdlog::info("NSSS upport available: {}",
-                 server.IsNSSSupportAvailable() ? "Yes" : "No");
+    LOG_INFO("API Version: {}", server.GetAPIVersion());
+    LOG_INFO("Domain Name: {}", server.GetDomainName());
+    LOG_INFO("Host Name: {}", server.GetHostName());
+    LOG_INFO("FQDN: {}", server.GetHostNameFqdn());
+    LOG_INFO("Local Service Cookie: {}", server.GetLocalServiceCookie());
+    LOG_INFO("State: {}", server.GetState());
+    LOG_INFO("Version: {}", server.GetVersionString());
+    LOG_INFO("NSSS upport available: {}",
+             server.IsNSSSupportAvailable() ? "Yes" : "No");
   }
 
   connection->leaveEventLoop();

@@ -42,11 +42,25 @@ class BluezClient final
   static constexpr auto INTROSPECTABLE_INTERFACE_NAME =
       "org.freedesktop.DBus.Introspectable";
 
+  // Mutex protection strategy:
+  // - adapters_mutex_ protects adapters_ map
+  // - devices_mutex_ protects devices_ map
+  // - gatt_mutex_ protects ALL GATT-related maps (services, characteristics,
+  // descriptors)
+  //   These are protected by a single mutex because they form a hierarchy:
+  //   Service -> Characteristic -> Descriptor
+  //   This prevents deadlocks and simplifies the locking logic
+  // - battery1_mutex_ protects battery1_ map
+  // - input1_mutex_ protects input1_ map
+
   std::mutex adapters_mutex_;
   std::map<sdbus::ObjectPath, std::unique_ptr<Adapter1>> adapters_;
+
   std::mutex devices_mutex_;
   std::map<sdbus::ObjectPath, std::unique_ptr<Device1>> devices_;
-  std::mutex gatt_services_mutex_;
+
+  // GATT mutex protects services, characteristics, AND descriptors
+  std::mutex gatt_mutex_;
   std::map<sdbus::ObjectPath, std::unique_ptr<GattService1>> gatt_services_;
   std::map<sdbus::ObjectPath, std::unique_ptr<GattDescriptor1>>
       gatt_descriptors_;

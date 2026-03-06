@@ -14,6 +14,7 @@
 
 #include "fwupd_client.h"
 
+#include "../utils/logging.h"
 #include "../utils/utils.h"
 
 int main() {
@@ -43,24 +44,24 @@ int main() {
       Utils::print_changed_properties(
           sdbus::InterfaceName(FwupdClient::INTERFACE_NAME), properties, {});
     } catch (const sdbus::Error& e) {
-      spdlog::warn("Failed to get fwupd properties: {}", e.what());
+      LOG_WARN("Failed to get fwupd properties: {}", e.what());
     }
   }
 
   // Get and print all devices
   try {
     const auto devices = client.GetDevices();
-    spdlog::info("Found {} device(s)", devices.size());
+    LOG_INFO("Found {} device(s)", devices.size());
 
     for (size_t i = 0; i < devices.size(); ++i) {
       std::ostringstream os;
       os << std::endl
          << "Device " << (i + 1) << " of " << devices.size() << std::endl;
       Utils::append_properties(devices[i], os);
-      spdlog::info(os.str());
+      LOG_INFO(os.str());
     }
   } catch (const sdbus::Error& e) {
-    spdlog::error("Failed to get devices: {}", e.what());
+    LOG_ERROR("Failed to get devices: {}", e.what());
   }
 
   connection->leaveEventLoop();

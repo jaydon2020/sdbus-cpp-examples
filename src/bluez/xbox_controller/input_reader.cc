@@ -19,6 +19,7 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 
+#include "../../utils/logging.h"
 #include "../hidraw.hpp"
 #include "input_reader.h"
 
@@ -26,13 +27,13 @@ InputReader::InputReader(std::string device)
     : device_(std::move(device)), stop_flag_(false) {}
 
 void InputReader::start() {
-  spdlog::debug("InputReader start: {}", device_);
+  LOG_DEBUG("InputReader start: {}", device_);
   stop_flag_ = false;
   read_input();
 }
 
 void InputReader::stop() {
-  spdlog::debug("InputReader stop: {}", device_);
+  LOG_DEBUG("InputReader stop: {}", device_);
   stop_flag_ = true;
 }
 
@@ -42,71 +43,71 @@ InputReader::~InputReader() {
 
 // NOLINTNEXTLINE(readability-static-accessed-through-instance)
 InputReader::Task InputReader::read_input() {
-  spdlog::debug("hidraw device: {}", device_);
+  LOG_DEBUG("hidraw device: {}", device_);
 
   const int fd = open(device_.c_str(), O_RDWR);
 
   while (true) {
     if (fd < 0) {
-      spdlog::error("unable to open device");
+      LOG_ERROR("unable to open device");
       break;
     }
 
     // Raw Info
     hidraw_devinfo raw_dev_info{};
     if (const auto res = ioctl(fd, HIDIOCGRAWINFO, &raw_dev_info); res < 0) {
-      spdlog::error("HIDIOCGRAWINFO");
+      LOG_ERROR("HIDIOCGRAWINFO");
       break;
     }
-    spdlog::info("bustype: {}", Hidraw::bus_str(raw_dev_info.bustype));
-    spdlog::info("Vendor ID: {:04X}", raw_dev_info.vendor);
-    spdlog::info("Product ID: {:04X}", raw_dev_info.product);
+    LOG_INFO("bustype: {}", Hidraw::bus_str(raw_dev_info.bustype));
+    LOG_INFO("Vendor ID: {:04X}", raw_dev_info.vendor);
+    LOG_INFO("Product ID: {:04X}", raw_dev_info.product);
 
     // Raw Name
     char buf[256]{};
     auto res = ioctl(fd, HIDIOCGRAWNAME(sizeof(buf)), buf);
     if (res < 0) {
-      spdlog::error("HIDIOCGRAWNAME");
+      LOG_ERROR("HIDIOCGRAWNAME");
       break;
     }
-    spdlog::info("HID Name: {}", buf);
+    LOG_INFO("HID Name: {}", buf);
 
     // Raw Physical Location
     res = ioctl(fd, HIDIOCGRAWPHYS(sizeof(buf)), buf);
     if (res < 0) {
-      spdlog::error("HIDIOCGRAWPHYS");
+      LOG_ERROR("HIDIOCGRAWPHYS");
       break;
     }
-    spdlog::info("HID Physical Location: {}", buf);
+    LOG_INFO("HID Physical Location: {}", buf);
 
     // Report Descriptor Size
     int desc_size = 0;
     res = ioctl(fd, HIDIOCGRDESCSIZE, &desc_size);
     if (res < 0) {
-      spdlog::error("HIDIOCGRDESCSIZE");
+      LOG_ERROR("HIDIOCGRDESCSIZE");
       break;
     }
-    spdlog::info("Report Descriptor Size: {}", desc_size);
+    LOG_INFO("Report Descriptor Size: {}", desc_size);
 
     // Report Descriptor
     hidraw_report_descriptor rpt_desc{};
     rpt_desc.size = desc_size;
     res = ioctl(fd, HIDIOCGRDESC, &rpt_desc);
     if (res < 0) {
-      spdlog::error("HIDIOCGRDESC");
+      LOG_ERROR("HIDIOCGRDESC");
       break;
     }
 
     std::ostringstream os;
     os << "Report Descriptor\n";
     os << CustomHexdump<400, false>(rpt_desc.value, rpt_desc.size);
-    spdlog::info(os.str());
+    LOG_INFO(os.str());
 
     while (!stop_flag_) {
       std::uint8_t buffer[sizeof(inputReport01_t)];
       ssize_t result = 0;
       if (result = read(fd, &buffer[0], sizeof(inputReport01_t)); result < 0) {
-        spdlog::error("GetInputReport4 failed: {}", strerror(errno));
+        LOG_ERROR("GetInputReport4 failed: {}", strerror(errno));
         break;
       }
 
@@ -124,7 +125,7 @@ InputReader::Task InputReader::read_input() {
               reinterpret_cast<inputReport04_t*>(buffer);
           PrintInputReport4(*input_report04);
         } else {
-          spdlog::error("Unknown report id: {}", buffer[0]);
+          LOG_ERROR("Unknown report id: {}", buffer[0]);
         }
       }
     }
@@ -161,52 +162,50 @@ std::string InputReader::dpad_to_string(const Direction dpad) {
 }
 
 void InputReader::PrintInputReport1(const inputReport01_t& input_report01) {
-  spdlog::info("Stick L/R: [{},{}] [{},{}] ", input_report01.GD_GamepadPointerX,
-               input_report01.GD_GamepadPointerY,
-               input_report01.GD_GamepadPointerZ,
-               input_report01.GD_GamepadPointerRz);
-  spdlog::info("Trigger L/R: {}, {}", input_report01.SIM_GamepadBrake,
-               input_report01.SIM_GamepadAccelerator);
-  spdlog::info("D-PAD: {}", dpad_to_string(static_cast<Direction>(
-                                input_report01.GD_GamepadHatSwitch)));
-  spdlog::info("A: {}", input_report01.BTN_GamepadButton1);
-  spdlog::info("B: {}", input_report01.BTN_GamepadButton2);
-  spdlog::info("Button3: {}", input_report01.BTN_GamepadButton3);
-  spdlog::info("X: {}", input_report01.BTN_GamepadButton4);
-  spdlog::info("Y: {}", input_report01.BTN_GamepadButton5);
-  spdlog::info("Button6: {}", input_report01.BTN_GamepadButton6);
-  spdlog::info("Left Bumper: {}", input_report01.BTN_GamepadButton7);
-  spdlog::info("Right Bumper: {}", input_report01.BTN_GamepadButton8);
-  spdlog::info("Button9: {}", input_report01.BTN_GamepadButton9);
-  spdlog::info("Button10: {}", input_report01.BTN_GamepadButton10);
-  spdlog::info("Button11: {}", input_report01.BTN_GamepadButton11);
-  spdlog::info("Menu: {}", input_report01.BTN_GamepadButton12);
-  spdlog::info("Button13: {}", input_report01.BTN_GamepadButton13);
-  spdlog::info("Left Stick Btn: {}", input_report01.BTN_GamepadButton14);
-  spdlog::info("Right Stick Btn: {}", input_report01.BTN_GamepadButton15);
-  spdlog::info("Back: {}", input_report01.CD_GamepadAcBack);
+  LOG_INFO("Stick L/R: [{},{}] [{},{}] ", input_report01.GD_GamepadPointerX,
+           input_report01.GD_GamepadPointerY, input_report01.GD_GamepadPointerZ,
+           input_report01.GD_GamepadPointerRz);
+  LOG_INFO("Trigger L/R: {}, {}", input_report01.SIM_GamepadBrake,
+           input_report01.SIM_GamepadAccelerator);
+  LOG_INFO("D-PAD: {}", dpad_to_string(static_cast<Direction>(
+                            input_report01.GD_GamepadHatSwitch)));
+  LOG_INFO("A: {}", input_report01.BTN_GamepadButton1);
+  LOG_INFO("B: {}", input_report01.BTN_GamepadButton2);
+  LOG_INFO("Button3: {}", input_report01.BTN_GamepadButton3);
+  LOG_INFO("X: {}", input_report01.BTN_GamepadButton4);
+  LOG_INFO("Y: {}", input_report01.BTN_GamepadButton5);
+  LOG_INFO("Button6: {}", input_report01.BTN_GamepadButton6);
+  LOG_INFO("Left Bumper: {}", input_report01.BTN_GamepadButton7);
+  LOG_INFO("Right Bumper: {}", input_report01.BTN_GamepadButton8);
+  LOG_INFO("Button9: {}", input_report01.BTN_GamepadButton9);
+  LOG_INFO("Button10: {}", input_report01.BTN_GamepadButton10);
+  LOG_INFO("Button11: {}", input_report01.BTN_GamepadButton11);
+  LOG_INFO("Menu: {}", input_report01.BTN_GamepadButton12);
+  LOG_INFO("Button13: {}", input_report01.BTN_GamepadButton13);
+  LOG_INFO("Left Stick Btn: {}", input_report01.BTN_GamepadButton14);
+  LOG_INFO("Right Stick Btn: {}", input_report01.BTN_GamepadButton15);
+  LOG_INFO("Back: {}", input_report01.CD_GamepadAcBack);
 }
 
 void InputReader::PrintInputReport2(const inputReport02_t& input_report02) {
-  spdlog::info("Home Button: {}",
-               input_report02.CD_GamepadConsumerControlAcHome);
+  LOG_INFO("Home Button: {}", input_report02.CD_GamepadConsumerControlAcHome);
 }
 
 void InputReader::PrintOutputReport3(const outputReport03_t& output_report03) {
-  spdlog::info("OutputReport3: {}", output_report03.reportId);
-  spdlog::info("PID_GamepadSetEffectReportDcEnableActuators: {}",
-               output_report03.PID_GamepadSetEffectReportDcEnableActuators);
-  spdlog::info("PID_GamepadSetEffectReportMagnitude: {}, {}, {}, {}",
-               output_report03.PID_GamepadSetEffectReportMagnitude[0],
-               output_report03.PID_GamepadSetEffectReportMagnitude[1],
-               output_report03.PID_GamepadSetEffectReportMagnitude[2],
-               output_report03.PID_GamepadSetEffectReportMagnitude[3]);
-  spdlog::info("PID_GamepadSetEffectReportDuration: {}",
-               output_report03.PID_GamepadSetEffectReportDuration);
-  spdlog::info("PID_GamepadSetEffectReportStartDelay: {}",
-               output_report03.PID_GamepadSetEffectReportStartDelay);
-  spdlog::info("PID_GamepadSetEffectReportLoopCount: {}",
-               output_report03.PID_GamepadSetEffectReportLoopCount);
+  LOG_INFO("OutputReport3: {}", output_report03.reportId);
+  LOG_INFO("PID_GamepadSetEffectReportDcEnableActuators: {}",
+           output_report03.PID_GamepadSetEffectReportDcEnableActuators);
+  LOG_INFO("PID_GamepadSetEffectReportMagnitude: {}, {}, {}, {}",
+           output_report03.PID_GamepadSetEffectReportMagnitude[0],
+           output_report03.PID_GamepadSetEffectReportMagnitude[1],
+           output_report03.PID_GamepadSetEffectReportMagnitude[2],
+           output_report03.PID_GamepadSetEffectReportMagnitude[3]);
+  LOG_INFO("PID_GamepadSetEffectReportDuration: {}",
+           output_report03.PID_GamepadSetEffectReportDuration);
+  LOG_INFO("PID_GamepadSetEffectReportStartDelay: {}",
+           output_report03.PID_GamepadSetEffectReportStartDelay);
+  LOG_INFO("PID_GamepadSetEffectReportLoopCount: {}",
+           output_report03.PID_GamepadSetEffectReportLoopCount);
 }
 
 void InputReader::PrintInputReport4(const inputReport04_t& output_report04) {
@@ -215,5 +214,5 @@ void InputReader::PrintInputReport4(const inputReport04_t& output_report04) {
        255.0f) *
       100.0f;
   battery_percentage = std::round(battery_percentage);  // Round the percentage
-  spdlog::info("Battery: {}", battery_percentage);
+  LOG_INFO("Battery: {}", battery_percentage);
 }

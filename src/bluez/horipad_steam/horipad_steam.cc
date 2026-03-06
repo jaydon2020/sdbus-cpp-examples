@@ -16,6 +16,8 @@
 
 #include <poll.h>
 
+#include "../../utils/property_utils.h"
+#include "../../utils/resource_limits.h"
 #include "../hidraw.hpp"
 
 const std::vector<std::pair<std::string, std::string>> input_match_params_bt = {
@@ -38,10 +40,9 @@ HoripadSteam::HoripadSteam(sdbus::IConnection& connection)
                   [&](const char* action,
                       const char* dev_node,
                       const char* sub_system) {
-                    spdlog::debug("Action: {}, Device: {}, Subsystem: {}",
-                                  action ? action : "",
-                                  dev_node ? dev_node : "",
-                                  sub_system ? sub_system : "");
+                    LOG_DEBUG("Action: {}, Device: {}, Subsystem: {}",
+                              action ? action : "", dev_node ? dev_node : "",
+                              sub_system ? sub_system : "");
                     if (std::strcmp(sub_system, "hidraw") == 0) {
                       if (std::strcmp(action, "remove") == 0) {
                         input_reader_->stop();
@@ -80,6 +81,12 @@ void HoripadSteam::onInterfacesAdded(
     if (interface == org::bluez::Adapter1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(adapters_mutex_);
       if (!adapters_.contains(objectPath)) {
+        if (resource_limits::IsAtCapacity(adapters_.size(),
+                                          resource_limits::kMaxAdapters)) {
+          LOG_WARN("Skipping Adapter1 {}: resource limit reached ({}/{})",
+                   objectPath, adapters_.size(), resource_limits::kMaxAdapters);
+          continue;
+        }
         auto adapter1 = std::make_unique<Adapter1>(
             getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
             objectPath, properties);
@@ -87,57 +94,87 @@ void HoripadSteam::onInterfacesAdded(
       }
     } else if (interface == org::bluez::Device1_proxy::INTERFACE_NAME) {
       auto mod_alias_key = sdbus::MemberName("Modalias");
-      if (!properties.contains(mod_alias_key))
-        continue;
 
-      auto mod_alias = Device1::parse_modalias(
-          properties.at(mod_alias_key).get<std::string>());
-      if (mod_alias.has_value()) {
-        spdlog::debug("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
-                      mod_alias.value().pid, mod_alias.value().did);
+      // Safely get the Modalias property
+      auto mod_alias_str =
+          property_utils::getProperty<std::string>(properties, mod_alias_key);
+      if (!mod_alias_str) {
+        continue;  // Skip devices without Modalias
+      }
+
+      if (auto mod_alias = Device1::parse_modalias(*mod_alias_str);
+          mod_alias.has_value()) {
+        LOG_DEBUG("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
+                  mod_alias.value().pid, mod_alias.value().did);
         if (auto [vid, pid, did] = mod_alias.value();
             vid != VENDOR_ID || pid != PRODUCT_ID) {
           continue;
         }
-        spdlog::debug("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
-                      mod_alias.value().pid, mod_alias.value().did);
+        LOG_DEBUG("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
+                  mod_alias.value().pid, mod_alias.value().did);
       } else {
-        spdlog::debug("modalias has no value assigned: {}", objectPath);
+        LOG_DEBUG("modalias has no value assigned: {}", objectPath);
         continue;
       }
 
-      std::scoped_lock lock(devices_mutex_);
-      if (!devices_.contains(objectPath)) {
+      std::string hidraw_device_key;
+      {
+        std::scoped_lock lock(devices_mutex_);
+        if (devices_.contains(objectPath)) {
+          continue;
+        }
+
+        if (resource_limits::IsAtCapacity(devices_.size(),
+                                          resource_limits::kMaxDevices)) {
+          LOG_WARN("Skipping Device1 {}: resource limit reached ({}/{})",
+                   objectPath, devices_.size(), resource_limits::kMaxDevices);
+          continue;
+        }
+
         auto device = std::make_unique<Device1>(
             getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
             objectPath, properties);
 
         if (auto props = device->GetProperties(); props.modalias.has_value()) {
           auto [vid, pid, did] = props.modalias.value();
-          spdlog::info("Adding: {}, {}, {}", vid, pid, did);
+          LOG_INFO("Adding: {}, {}, {}", vid, pid, did);
           if (vid == VENDOR_ID && pid == PRODUCT_ID) {
             if (props.connected && props.paired && props.trusted) {
-              const auto dev_key =
+              hidraw_device_key =
                   create_device_key_from_serial_number(props.address);
-              HidDevicesLock();
-              if (HidDevicesContains(dev_key)) {
-                spdlog::info("Adding hidraw device: {}", dev_key);
-                if (!input_reader_) {
-                  input_reader_ =
-                      std::make_unique<InputReader>(GetHidDevice(dev_key));
-                  input_reader_->start();
-                }
-              }
-              HidDevicesUnlock();
             }
           }
         }
 
         devices_[objectPath] = std::move(device);
       }
+
+      if (!hidraw_device_key.empty()) {
+        std::string hidraw_device;
+        HidDevicesLock();
+        if (HidDevicesContains(hidraw_device_key)) {
+          hidraw_device = GetHidDevice(hidraw_device_key);
+        }
+        HidDevicesUnlock();
+
+        if (!hidraw_device.empty()) {
+          LOG_INFO("Adding hidraw device: {}", hidraw_device_key);
+          if (!input_reader_) {
+            input_reader_ = std::make_unique<InputReader>(hidraw_device);
+            input_reader_->start();
+          }
+        }
+      }
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
       std::lock_guard lock(input1_mutex_);
       if (!input1_.contains(objectPath)) {
+        if (resource_limits::IsAtCapacity(input1_.size(),
+                                          resource_limits::kMaxInputEntries)) {
+          LOG_WARN("Skipping Input1 {}: resource limit reached ({}/{})",
+                   objectPath, input1_.size(),
+                   resource_limits::kMaxInputEntries);
+          continue;
+        }
         input1_[objectPath] = std::make_unique<Input1>(
             getProxy().getConnection(),
             sdbus::ServiceName(org::bluez::Input1_proxy::INTERFACE_NAME),
@@ -153,34 +190,22 @@ void HoripadSteam::onInterfacesRemoved(
   for (const auto& interface : interfaces) {
     if (interface == org::bluez::Adapter1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(adapters_mutex_);
-      if (!adapters_.contains(objectPath)) {
-        if (adapters_.contains(objectPath)) {
-          adapters_[objectPath].reset();
-          adapters_.erase(objectPath);
-        }
+      if (adapters_.contains(objectPath)) {
+        adapters_[objectPath].reset();
+        adapters_.erase(objectPath);
       }
     } else if (interface == org::bluez::Device1_proxy::INTERFACE_NAME) {
       std::scoped_lock devices_lock(devices_mutex_);
-      if (!devices_.contains(objectPath)) {
-        if (devices_.contains(objectPath)) {
-          devices_[objectPath].reset();
-          devices_.erase(objectPath);
-        }
+      if (devices_.contains(objectPath)) {
+        devices_[objectPath].reset();
+        devices_.erase(objectPath);
       }
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
       std::lock_guard lock(input1_mutex_);
-      if (!input1_.contains(objectPath)) {
+      if (input1_.contains(objectPath)) {
         input1_[objectPath].reset();
         input1_.erase(objectPath);
       }
-    }
-  }
-  for (auto it = interfaces.begin(); it != interfaces.end(); ++it) {
-    std::scoped_lock lock(devices_mutex_);
-    if (devices_.contains(objectPath)) {
-      auto& device = devices_[objectPath];
-      device.reset();
-      devices_.erase(objectPath);
     }
   }
 }

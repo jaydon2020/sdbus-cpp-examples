@@ -1,17 +1,35 @@
+#include "../utils/signal_handler.h"
 #include "wpa_supplicant1_client.h"
 
 #include <chrono>
-#include <thread>
 
 int main() {
-  const auto connection = sdbus::createSystemBusConnection();
-  connection->enterEventLoopAsync();
+  try {
+    installSignalHandlers();
 
-  WpaSupplicant1Client client(*connection);
+    const auto connection = sdbus::createSystemBusConnection();
+    connection->enterEventLoopAsync();
 
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(2s);  // allow async enumeration
+    WpaSupplicant1Client client(*connection);
 
-  connection->leaveEventLoop();
-  return 0;
+    LOG_INFO("wpa_supplicant client running - Press Ctrl+C to exit");
+
+    auto result = monitorLoop(*connection);
+
+    if (result) {
+      LOG_ERROR("Exiting due to: {}", *result);
+    } else {
+      LOG_INFO("Shutting down...");
+    }
+
+    connection->leaveEventLoop();
+    return result ? 1 : 0;
+
+  } catch (const sdbus::Error& e) {
+    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    return 1;
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception: {}", e.what());
+    return 1;
+  }
 }

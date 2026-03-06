@@ -12,21 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <spdlog/spdlog.h>
+#include "../../utils/signal_handler.h"
 #include "horipad_steam.h"
 
 int main() {
-  spdlog::set_level(spdlog::level::debug);
-  spdlog::flush_every(std::chrono::seconds(5));
+  try {
+    installSignalHandlers();
 
-  const auto connection = sdbus::createSystemBusConnection();
-  connection->enterEventLoopAsync();
+    spdlog::set_level(spdlog::level::debug);
+    spdlog::flush_every(kLogFlushInterval);
 
-  HoripadSteam client(*connection);
+    const auto connection = sdbus::createSystemBusConnection();
+    connection->enterEventLoopAsync();
 
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(120000ms);
-  connection->leaveEventLoop();
+    HoripadSteam client(*connection);
 
-  return 0;
+    LOG_INFO("HoriPad Steam client running - Press Ctrl+C to exit");
+
+    // Monitor loop with shared connection health timing defaults
+    auto result = monitorLoop(*connection);
+
+    if (result) {
+      LOG_ERROR("Exiting due to: {}", *result);
+    } else {
+      LOG_INFO("Shutting down...");
+    }
+
+    connection->leaveEventLoop();
+    return result ? 1 : 0;
+
+  } catch (const sdbus::Error& e) {
+    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    return 1;
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception: {}", e.what());
+    return 1;
+  }
 }

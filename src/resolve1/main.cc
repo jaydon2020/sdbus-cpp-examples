@@ -12,17 +12,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "../utils/signal_handler.h"
 #include "resolve1_manager.h"
 
 int main() {
-  const auto connection = sdbus::createSystemBusConnection();
-  connection->enterEventLoopAsync();
+  try {
+    installSignalHandlers();
 
-  Resolve1Manager client(*connection);
+    const auto connection = sdbus::createSystemBusConnection();
+    connection->enterEventLoopAsync();
 
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(120000ms);
-  connection->leaveEventLoop();
+    Resolve1Manager manager(*connection);
 
-  return 0;
+    LOG_INFO("Resolved client running - Press Ctrl+C to exit");
+
+    // Monitor loop with shared connection health timing defaults
+    auto result = monitorLoop(*connection);
+
+    if (result) {
+      LOG_ERROR("Exiting due to: {}", *result);
+    } else {
+      LOG_INFO("Shutting down...");
+    }
+
+    connection->leaveEventLoop();
+    return result ? 1 : 0;
+
+  } catch (const sdbus::Error& e) {
+    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    return 1;
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception: {}", e.what());
+    return 1;
+  }
 }

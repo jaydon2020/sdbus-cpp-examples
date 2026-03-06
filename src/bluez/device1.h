@@ -19,6 +19,7 @@
 #include <regex>
 
 #include "../proxy/org/bluez/Device1/device1_proxy.h"
+#include "../utils/logging.h"
 
 class Device1 final : public sdbus::ProxyInterfaces<sdbus::Properties_proxy,
                                                     org::bluez::Device1_proxy> {
@@ -55,7 +56,7 @@ class Device1 final : public sdbus::ProxyInterfaces<sdbus::Properties_proxy,
           const std::map<sdbus::PropertyName, sdbus::Variant>& properties)
       : ProxyInterfaces{connection, destination, objectPath} {
     registerProxy();
-    spdlog::debug("Device1: {}", objectPath);
+    LOG_DEBUG("Device1: {}", objectPath);
     onPropertiesChanged(sdbus::InterfaceName(Device1_proxy::INTERFACE_NAME),
                         properties, {});
   }
@@ -71,7 +72,7 @@ class Device1 final : public sdbus::ProxyInterfaces<sdbus::Properties_proxy,
         std::regex_search(mod_alias, match, re) && match.size() == 4) {
       return Modalias{match[1].str(), match[2].str(), match[3].str()};
     }
-    spdlog::error("Failed to parse modalias");
+    LOG_ERROR("Failed to parse modalias");
     return {};
   }
 
@@ -134,7 +135,7 @@ class Device1 final : public sdbus::ProxyInterfaces<sdbus::Properties_proxy,
     if (const auto key = sdbus::MemberName("RSSI");
         changedProperties.contains(key)) {
       properties_.rssi = changedProperties.at(key).get<std::int16_t>();
-      spdlog::debug("RSSI: {}", properties_.rssi);
+      LOG_DEBUG("RSSI: {}", properties_.rssi);
     }
     if (const auto key = sdbus::MemberName("ServicesResolved");
         changedProperties.contains(key)) {

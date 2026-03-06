@@ -17,6 +17,8 @@
 #include <cmath>
 #include <iomanip>
 
+#include "../utils/logging.h"
+
 void Utils::append_property(const sdbus::Variant& value,
                             std::ostringstream& os) {
   const std::string_view type = value.peekValueType();
@@ -58,7 +60,7 @@ void Utils::print_changed_properties(
     os << "[" << interfaceName << "] Invalidated property: " << name
        << std::endl;
   }
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }
 
 std::vector<std::string> Utils::ListNames(sdbus::IConnection& connection) {

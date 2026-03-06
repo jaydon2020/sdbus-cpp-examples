@@ -50,8 +50,8 @@ Login1ManagerClient::Login1ManagerClient(sdbus::IConnection& connection)
             onUserNew(id, path);
           }
         } else
-          spdlog::error("[{}] {} - {}", Manager_proxy::INTERFACE_NAME,
-                        error->getName(), error->getMessage());
+          LOG_ERROR("[{}] {} - {}", Manager_proxy::INTERFACE_NAME,
+                    error->getName(), error->getMessage());
       });
   registerProxy();
 }
@@ -88,7 +88,7 @@ void Login1ManagerClient::onPropertiesChanged(
 
 void Login1ManagerClient::onSessionNew(const std::string& session_id,
                                        const sdbus::ObjectPath& object_path) {
-  spdlog::info("onSessionNew: {}: {}", session_id, object_path);
+  LOG_INFO("onSessionNew: {}: {}", session_id, object_path);
   if (!sessions_.contains(object_path)) {
     sessions_[object_path] = std::make_unique<Login1Session>(
         getProxy().getConnection(), object_path);
@@ -105,7 +105,7 @@ void Login1ManagerClient::onSessionRemoved(
   os << "SESSION REMOVED: " << object_path << std::endl;
   os << "  Session ID: " << session_id << std::endl;
   os << "========================================" << std::endl;
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
   if (sessions_.contains(object_path)) {
     sessions_[object_path].reset();
     sessions_.erase(object_path);
@@ -114,7 +114,7 @@ void Login1ManagerClient::onSessionRemoved(
 
 void Login1ManagerClient::onUserNew(const uint32_t& uid,
                                     const sdbus::ObjectPath& object_path) {
-  spdlog::info("onUserNew: {}: {}", uid, object_path);
+  LOG_INFO("onUserNew: {}: {}", uid, object_path);
   if (!users_.contains(object_path)) {
     users_[object_path] =
         std::make_unique<Login1User>(getProxy().getConnection(), object_path);
@@ -130,7 +130,7 @@ void Login1ManagerClient::onUserRemoved(const uint32_t& uid,
   os << "USER REMOVED: " << object_path << std::endl;
   os << "  UID: " << uid << std::endl;
   os << "========================================" << std::endl;
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
   if (users_.contains(object_path)) {
     users_[object_path].reset();
     users_.erase(object_path);
@@ -139,7 +139,7 @@ void Login1ManagerClient::onUserRemoved(const uint32_t& uid,
 
 void Login1ManagerClient::onSeatNew(const std::string& seat_id,
                                     const sdbus::ObjectPath& object_path) {
-  spdlog::info("onSeatNew: {}: {}", seat_id, object_path);
+  LOG_INFO("onSeatNew: {}: {}", seat_id, object_path);
   if (!seats_.contains(object_path)) {
     seats_[object_path] =
         std::make_unique<Login1Seat>(getProxy().getConnection(), object_path);
@@ -155,7 +155,7 @@ void Login1ManagerClient::onSeatRemoved(const std::string& seat_id,
   os << "SEAT REMOVED: " << object_path << std::endl;
   os << "  Seat ID: " << seat_id << std::endl;
   os << "========================================" << std::endl;
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
   if (seats_.contains(object_path)) {
     seats_[object_path].reset();
     seats_.erase(object_path);
@@ -163,19 +163,19 @@ void Login1ManagerClient::onSeatRemoved(const std::string& seat_id,
 }
 
 void Login1ManagerClient::onPrepareForShutdown(const bool& start) {
-  spdlog::info("onPrepareForShutdown: {}", start);
+  LOG_INFO("onPrepareForShutdown: {}", start);
 }
 
 void Login1ManagerClient::onPrepareForShutdownWithMetadata(
     const bool& start,
     const std::map<std::string, sdbus::Variant>& metadata) {
-  spdlog::info("onPrepareForShutdownWithMetadata: {}", start);
+  LOG_INFO("onPrepareForShutdownWithMetadata: {}", start);
   std::ostringstream os;
   os << std::endl;
   Utils::append_properties(metadata, os);
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }
 
 void Login1ManagerClient::onPrepareForSleep(const bool& start) {
-  spdlog::info("onPrepareForSleep: {}", start);
+  LOG_INFO("onPrepareForSleep: {}", start);
 }

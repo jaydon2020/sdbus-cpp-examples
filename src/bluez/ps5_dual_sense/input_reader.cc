@@ -17,23 +17,23 @@
 
 #include <fcntl.h>
 #include <sys/epoll.h>
+#include <unistd.h>
 
+#include "../../utils/logging.h"
 #include "../hidraw.hpp"
 #include "input_reader.h"
-
-#include <unistd.h>
 
 InputReader::InputReader(std::string device)
     : device_(std::move(device)), stop_flag_(false) {}
 
 void InputReader::start() {
-  spdlog::debug("InputReader start: {}", device_);
+  LOG_DEBUG("InputReader start: {}", device_);
   stop_flag_ = false;
   read_input();
 }
 
 void InputReader::stop() {
-  spdlog::debug("InputReader stop: {}", device_);
+  LOG_DEBUG("InputReader stop: {}", device_);
   stop_flag_ = true;
 }
 
@@ -43,65 +43,65 @@ InputReader::~InputReader() {
 
 // NOLINTNEXTLINE(readability-static-accessed-through-instance)
 InputReader::Task InputReader::read_input() {
-  spdlog::debug("hidraw device: {}", device_);
+  LOG_DEBUG("hidraw device: {}", device_);
 
   const int fd = open(device_.c_str(), O_RDWR);
 
   while (true) {
     if (fd < 0) {
-      spdlog::error("unable to open device");
+      LOG_ERROR("unable to open device");
       break;
     }
 
     // Raw Info
     hidraw_devinfo raw_dev_info{};
     if (const auto res = ioctl(fd, HIDIOCGRAWINFO, &raw_dev_info); res < 0) {
-      spdlog::error("HIDIOCGRAWINFO");
+      LOG_ERROR("HIDIOCGRAWINFO");
       break;
     }
-    spdlog::info("bustype: {}", Hidraw::bus_str(raw_dev_info.bustype));
-    spdlog::info("Vendor ID: {:04X}", raw_dev_info.vendor);
-    spdlog::info("Product ID: {:04X}", raw_dev_info.product);
+    LOG_INFO("bustype: {}", Hidraw::bus_str(raw_dev_info.bustype));
+    LOG_INFO("Vendor ID: {:04X}", raw_dev_info.vendor);
+    LOG_INFO("Product ID: {:04X}", raw_dev_info.product);
 
     // Raw Name
     char buf[256]{};
     auto res = ioctl(fd, HIDIOCGRAWNAME(sizeof(buf)), buf);
     if (res < 0) {
-      spdlog::error("HIDIOCGRAWNAME");
+      LOG_ERROR("HIDIOCGRAWNAME");
       break;
     }
-    spdlog::info("HID Name: {}", buf);
+    LOG_INFO("HID Name: {}", buf);
 
     // Raw Physical Location
     res = ioctl(fd, HIDIOCGRAWPHYS(sizeof(buf)), buf);
     if (res < 0) {
-      spdlog::error("HIDIOCGRAWPHYS");
+      LOG_ERROR("HIDIOCGRAWPHYS");
       break;
     }
-    spdlog::info("HID Physical Location: {}", buf);
+    LOG_INFO("HID Physical Location: {}", buf);
 
     // Report Descriptor Size
     int desc_size = 0;
     res = ioctl(fd, HIDIOCGRDESCSIZE, &desc_size);
     if (res < 0) {
-      spdlog::error("HIDIOCGRDESCSIZE");
+      LOG_ERROR("HIDIOCGRDESCSIZE");
       break;
     }
-    spdlog::info("Report Descriptor Size: {}", desc_size);
+    LOG_INFO("Report Descriptor Size: {}", desc_size);
 
     // Report Descriptor
     hidraw_report_descriptor rpt_desc{};
     rpt_desc.size = desc_size;
     res = ioctl(fd, HIDIOCGRDESC, &rpt_desc);
     if (res < 0) {
-      spdlog::error("HIDIOCGRDESC");
+      LOG_ERROR("HIDIOCGRDESC");
       break;
     }
 
     std::ostringstream os;
     os << "Report Descriptor\n";
     os << CustomHexdump<400, false>(rpt_desc.value, rpt_desc.size);
-    spdlog::info(os.str());
+    LOG_INFO(os.str());
 
     // Get Features
     GetControllerCalibrationData(
@@ -113,7 +113,7 @@ InputReader::Task InputReader::read_input() {
       std::uint8_t buffer[sizeof(USBGetStateData)];
       ssize_t result = 0;
       if (result = read(fd, &buffer[0], sizeof(USBGetStateData)); result < 0) {
-        spdlog::error("GetInputReport4 failed: {}", strerror(errno));
+        LOG_ERROR("GetInputReport4 failed: {}", strerror(errno));
         break;
       }
 
@@ -126,14 +126,14 @@ InputReader::Task InputReader::read_input() {
         } else if (report_id == 49) {
           const auto& input_report31 = reinterpret_cast<ReportIn31&>(buffer);
           if (input_report31.Data.HasHID) {
-            spdlog::info("[ReportIn31] Has HID");
+            LOG_INFO("[ReportIn31] Has HID");
             PrintControllerStateUsb(input_report31.Data.State.StateData,
                                     hw_cal_data_);
           } else if (input_report31.Data.HasMic) {
-            spdlog::info("[ReportIn31] Has Microphone");
+            LOG_INFO("[ReportIn31] Has Microphone");
           }
         } else {
-          spdlog::error("Unknown report id: {}", report_id);
+          LOG_ERROR("Unknown report id: {}", report_id);
         }
       }
     }
@@ -152,12 +152,12 @@ int InputReader::GetControllerMacAll(const int fd,
   if (const auto res =
           ioctl(fd, HIDIOCGFEATURE(sizeof(ReportFeatureInMacAll)), &mac_all);
       res < 0) {
-    spdlog::error("GetControllerMacAll failed: {}", strerror(errno));
+    LOG_ERROR("GetControllerMacAll failed: {}", strerror(errno));
     return 1;
   }
   if (mac_all.ReportID != 0x09 || mac_all.Hard08 != 0x08 ||
       mac_all.Hard25 != 0x25 || mac_all.Hard00 != 0x00) {
-    spdlog::error("GetControllerMacAll invalid response");
+    LOG_ERROR("GetControllerMacAll invalid response");
     return 1;
   }
   return 0;
@@ -169,11 +169,11 @@ int InputReader::GetControllerVersion(const int fd,
   if (const auto res =
           ioctl(fd, HIDIOCGFEATURE(sizeof(ReportFeatureInVersion)), &version);
       res < 0) {
-    spdlog::error("GetControllerVersion failed: {}", strerror(errno));
+    LOG_ERROR("GetControllerVersion failed: {}", strerror(errno));
     return 1;
   }
   if (version.Data.ReportID != 0x20) {
-    spdlog::error("GetControllerVersion invalid response");
+    LOG_ERROR("GetControllerVersion invalid response");
     return 1;
   }
   return 0;
@@ -192,11 +192,11 @@ int InputReader::GetControllerCalibrationData(
   if (const auto res = ioctl(
           fd, HIDIOCGFEATURE(sizeof(ReportFeatureCalibrationData)), &cal_data);
       res < 0) {
-    spdlog::error("GetControllerCalibrationData failed: {}", strerror(errno));
+    LOG_ERROR("GetControllerCalibrationData failed: {}", strerror(errno));
     return 1;
   }
   if (cal_data.Data.ReportID != 0x05) {
-    spdlog::error("GetControllerCalibrationData invalid response");
+    LOG_ERROR("GetControllerCalibrationData invalid response");
     return 1;
   }
 
@@ -251,7 +251,7 @@ int InputReader::GetControllerCalibrationData(
   for (auto& [abs_code, bias, sens_numer, sens_denom] : hw_cal_data.gyro) {
     if (sens_denom == 0) {
       abs_code = ABS_RX + i;
-      spdlog::warn(
+      LOG_WARN(
           "Invalid gyro calibration data for axis ({}), disabling calibration.",
           abs_code);
       bias = 0;
@@ -266,7 +266,7 @@ int InputReader::GetControllerCalibrationData(
   for (auto& [abs_code, bias, sens_numer, sens_denom] : hw_cal_data.accel) {
     if (sens_denom == 0) {
       abs_code = ABS_RX + i;
-      spdlog::warn(
+      LOG_WARN(
           "Invalid accelerometer calibration data for axis ({}), disabling "
           "calibration.",
           abs_code);
@@ -385,23 +385,23 @@ std::string InputReader::light_fade_animation_to_string(
 
 void InputReader::PrintCalibrationData(
     HardwareCalibrationData const& hw_cal_data) {
-  spdlog::info("HW Calibration Data");
+  LOG_INFO("HW Calibration Data");
   for (auto const& [abs_code, bias, sens_numer, sens_denom] :
        hw_cal_data.accel) {
-    spdlog::info("\tAccel {}: bias: {}, sens_numer: {}, sens_denom: {}",
-                 abs_code, bias, sens_numer, sens_denom);
+    LOG_INFO("\tAccel {}: bias: {}, sens_numer: {}, sens_denom: {}", abs_code,
+             bias, sens_numer, sens_denom);
   }
   for (auto const& [abs_code, bias, sens_numer, sens_denom] :
        hw_cal_data.gyro) {
-    spdlog::info("\tGyro {}: bias: {}, sens_numer: {}, sens_denom: {}",
-                 abs_code, bias, sens_numer, sens_denom);
+    LOG_INFO("\tGyro {}: bias: {}, sens_numer: {}, sens_denom: {}", abs_code,
+             bias, sens_numer, sens_denom);
   }
 }
 
 void InputReader::PrintControllerMacAll(
     ReportFeatureInMacAll const& controller_and_host_mac) {
-  spdlog::info("Controller Mac All");
-  spdlog::info("\tReport ID: 0x{:02X}", controller_and_host_mac.ReportID);
+  LOG_INFO("Controller Mac All");
+  LOG_INFO("\tReport ID: 0x{:02X}", controller_and_host_mac.ReportID);
 
   std::ostringstream os;
   os << "\tClient: ";
@@ -412,7 +412,7 @@ void InputReader::PrintControllerMacAll(
       os << ":";
     }
   }
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
   os.clear();
   os.str("");
   os << "\tHost: ";
@@ -423,18 +423,18 @@ void InputReader::PrintControllerMacAll(
       os << ":";
     }
   }
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }
 
 void InputReader::PrintControllerVersion(
     ReportFeatureInVersion const& version) {
-  spdlog::info("Firmware Info");
-  spdlog::info("\tReportID: 0x{:02X}", version.Data.ReportID);
-  spdlog::info("\tBuildDate: {}", std::string_view(version.Data.BuildDate, 11));
-  spdlog::info("\tBuildTime: {}", std::string_view(version.Data.BuildTime, 8));
-  spdlog::info("\tFwType: {}", version.Data.FwType);
-  spdlog::info("\tSwSeries: 0x{:04X}", version.Data.SwSeries);
-  spdlog::info("\tHardwareInfo: 0x{:08X}", version.Data.HardwareInfo);
+  LOG_INFO("Firmware Info");
+  LOG_INFO("\tReportID: 0x{:02X}", version.Data.ReportID);
+  LOG_INFO("\tBuildDate: {}", std::string_view(version.Data.BuildDate, 11));
+  LOG_INFO("\tBuildTime: {}", std::string_view(version.Data.BuildTime, 8));
+  LOG_INFO("\tFwType: {}", version.Data.FwType);
+  LOG_INFO("\tSwSeries: 0x{:04X}", version.Data.SwSeries);
+  LOG_INFO("\tHardwareInfo: 0x{:08X}", version.Data.HardwareInfo);
   const uint32_t firmware_version = version.Data.FirmwareVersion;
   std::ostringstream firmware_version_str;
   firmware_version_str << std::hex << std::setw(2) << std::setfill('0')
@@ -443,18 +443,16 @@ void InputReader::PrintControllerVersion(
                        << ((firmware_version >> 16) & 0xFF) << "."
                        << std::setw(4) << std::setfill('0')
                        << (firmware_version & 0xFFFF);
-  spdlog::info("\tFirmwareVersion: {}", firmware_version_str.str());
-  // spdlog::info("\tFirmwareVersion: 0x{:08X}", version.Data.FirmwareVersion);
-  spdlog::info("\tDeviceInfo: {}", version.Data.DeviceInfo);
-  spdlog::info("\tUpdateVersion: 0x{:04X}", version.Data.UpdateVersion);
-  spdlog::info("\tUpdateImageInfo: 0x{:02}",
-               static_cast<int>(version.Data.UpdateImageInfo));
-  spdlog::info("\tUpdateUnk: 0x{:02}",
-               static_cast<int>(version.Data.UpdateUnk));
-  spdlog::info("\tSblFwVersion: 0x{:08X}", version.Data.SblFwVersion);
-  spdlog::info("\tVenomFwVersion: 0x{:08X}", version.Data.VenomFwVersion);
-  spdlog::info("\tSpiderDspFwVersion: 0x{:08X}",
-               version.Data.SpiderDspFwVersion);
+  LOG_INFO("\tFirmwareVersion: {}", firmware_version_str.str());
+  // LOG_INFO("\tFirmwareVersion: 0x{:08X}", version.Data.FirmwareVersion);
+  LOG_INFO("\tDeviceInfo: {}", version.Data.DeviceInfo);
+  LOG_INFO("\tUpdateVersion: 0x{:04X}", version.Data.UpdateVersion);
+  LOG_INFO("\tUpdateImageInfo: 0x{:02}",
+           static_cast<int>(version.Data.UpdateImageInfo));
+  LOG_INFO("\tUpdateUnk: 0x{:02}", static_cast<int>(version.Data.UpdateUnk));
+  LOG_INFO("\tSblFwVersion: 0x{:08X}", version.Data.SblFwVersion);
+  LOG_INFO("\tVenomFwVersion: 0x{:08X}", version.Data.VenomFwVersion);
+  LOG_INFO("\tSpiderDspFwVersion: 0x{:08X}", version.Data.SpiderDspFwVersion);
 }
 
 template <typename T, typename U, typename V>
@@ -467,32 +465,32 @@ T mult_frac(T x, U n, V d) {
 void InputReader::PrintControllerStateUsb(
     USBGetStateData const& state,
     HardwareCalibrationData const& hw_cal_data) {
-  spdlog::info("Controller State (USB)");
-  spdlog::info("\tLeftStick: {}, {}", state.LeftStickX, state.LeftStickY);
-  spdlog::info("\tRightStick: {}, {}", state.RightStickX, state.RightStickY);
-  spdlog::info("\tDPad: {}", dpad_to_string(state.DPad));
-  spdlog::info("\tButtonSquare: {}", state.ButtonSquare);
-  spdlog::info("\tButtonCross: {}", state.ButtonCross);
-  spdlog::info("\tButtonCircle: {}", state.ButtonCircle);
-  spdlog::info("\tButtonTriangle: {}", state.ButtonTriangle);
-  spdlog::info("\tButtonL1: {}", state.ButtonL1);
-  spdlog::info("\tButtonR1: {}", state.ButtonR1);
-  spdlog::info("\tButtonL2: {}", state.ButtonL2);
-  spdlog::info("\tButtonR2: {}", state.ButtonR2);
-  spdlog::info("\tButtonCreate: {}", state.ButtonCreate);
-  spdlog::info("\tButtonOptions: {}", state.ButtonOptions);
-  spdlog::info("\tButtonL3: {}", state.ButtonL3);
-  spdlog::info("\tButtonR3: {}", state.ButtonR3);
-  spdlog::info("\tButtonHome: {}", state.ButtonHome);
-  spdlog::info("\tButtonPad: {}", state.ButtonPad);
-  spdlog::info("\tButtonMute: {}", state.ButtonMute);
-  spdlog::info("\tButtonLeftFunction: {}", state.ButtonLeftFunction);
-  spdlog::info("\tButtonRightFunction: {}", state.ButtonRightFunction);
-  spdlog::info("\tButtonLeftPaddle: {}", state.ButtonLeftPaddle);
-  spdlog::info("\tButtonRightPaddle: {}", state.ButtonRightPaddle);
-  spdlog::info("\tTimeStamp: {}", state.TimeStamp);
-  spdlog::info("\tAngularVelocity (Raw): {}, {}, {}", state.AngularVelocityX,
-               state.AngularVelocityY, state.AngularVelocityZ);
+  LOG_INFO("Controller State (USB)");
+  LOG_INFO("\tLeftStick: {}, {}", state.LeftStickX, state.LeftStickY);
+  LOG_INFO("\tRightStick: {}, {}", state.RightStickX, state.RightStickY);
+  LOG_INFO("\tDPad: {}", dpad_to_string(state.DPad));
+  LOG_INFO("\tButtonSquare: {}", state.ButtonSquare);
+  LOG_INFO("\tButtonCross: {}", state.ButtonCross);
+  LOG_INFO("\tButtonCircle: {}", state.ButtonCircle);
+  LOG_INFO("\tButtonTriangle: {}", state.ButtonTriangle);
+  LOG_INFO("\tButtonL1: {}", state.ButtonL1);
+  LOG_INFO("\tButtonR1: {}", state.ButtonR1);
+  LOG_INFO("\tButtonL2: {}", state.ButtonL2);
+  LOG_INFO("\tButtonR2: {}", state.ButtonR2);
+  LOG_INFO("\tButtonCreate: {}", state.ButtonCreate);
+  LOG_INFO("\tButtonOptions: {}", state.ButtonOptions);
+  LOG_INFO("\tButtonL3: {}", state.ButtonL3);
+  LOG_INFO("\tButtonR3: {}", state.ButtonR3);
+  LOG_INFO("\tButtonHome: {}", state.ButtonHome);
+  LOG_INFO("\tButtonPad: {}", state.ButtonPad);
+  LOG_INFO("\tButtonMute: {}", state.ButtonMute);
+  LOG_INFO("\tButtonLeftFunction: {}", state.ButtonLeftFunction);
+  LOG_INFO("\tButtonRightFunction: {}", state.ButtonRightFunction);
+  LOG_INFO("\tButtonLeftPaddle: {}", state.ButtonLeftPaddle);
+  LOG_INFO("\tButtonRightPaddle: {}", state.ButtonRightPaddle);
+  LOG_INFO("\tTimeStamp: {}", state.TimeStamp);
+  LOG_INFO("\tAngularVelocity (Raw): {}, {}, {}", state.AngularVelocityX,
+           state.AngularVelocityY, state.AngularVelocityZ);
 
   auto gyro_x = mult_frac<int32_t, int16_t, int32_t>(
       hw_cal_data.gyro[0].sens_numer, state.AngularVelocityX,
@@ -503,10 +501,10 @@ void InputReader::PrintControllerStateUsb(
   auto gyro_z = mult_frac<int32_t, int16_t, int32_t>(
       hw_cal_data.gyro[2].sens_numer, state.AngularVelocityZ,
       hw_cal_data.gyro[2].sens_denom);
-  spdlog::info("\tAngularVelocity (Cal): {}, {}, {}", gyro_x, gyro_y, gyro_z);
+  LOG_INFO("\tAngularVelocity (Cal): {}, {}, {}", gyro_x, gyro_y, gyro_z);
 
-  spdlog::info("\tAccelerometer (Raw): {}, {}, {}", state.AccelerometerX,
-               state.AccelerometerY, state.AccelerometerZ);
+  LOG_INFO("\tAccelerometer (Raw): {}, {}, {}", state.AccelerometerX,
+           state.AccelerometerY, state.AccelerometerZ);
 
   auto acc_x = mult_frac<int32_t, int16_t, int32_t>(
       hw_cal_data.accel[0].sens_numer, state.AccelerometerX,
@@ -517,58 +515,57 @@ void InputReader::PrintControllerStateUsb(
   auto acc_z = mult_frac<int32_t, int16_t, int32_t>(
       hw_cal_data.accel[2].sens_numer, state.AccelerometerZ,
       hw_cal_data.accel[2].sens_denom);
-  spdlog::info("\tAccelerometer (Cal): {}, {}, {}", acc_x, acc_y, acc_z);
+  LOG_INFO("\tAccelerometer (Cal): {}, {}, {}", acc_x, acc_y, acc_z);
 
-  spdlog::info("\tSensorTimestamp: {}", state.SensorTimestamp);
-  spdlog::info("\tTemperature: {}", state.Temperature);
-  spdlog::info(
+  LOG_INFO("\tSensorTimestamp: {}", state.SensorTimestamp);
+  LOG_INFO("\tTemperature: {}", state.Temperature);
+  LOG_INFO(
       "\tTouchData: timestamp: {}, index: {}, X: {}, Y: {}, NotTouching: {}",
       state.touchData.Timestamp, state.touchData.Finger[0].Index,
       state.touchData.Finger[0].FingerX, state.touchData.Finger[0].FingerY,
       state.touchData.Finger[0].NotTouching);
-  spdlog::info(
+  LOG_INFO(
       "\tTouchData: timestamp: {}, index: {}, X: {}, Y: {}, NotTouching: {}",
       state.touchData.Timestamp, state.touchData.Finger[1].Index,
       state.touchData.Finger[1].FingerX, state.touchData.Finger[1].FingerY,
       state.touchData.Finger[1].NotTouching);
-  spdlog::info("\tTriggerRightStopLocation: {}",
-               state.TriggerRightStopLocation);
-  spdlog::info("\tTriggerRightStatus: {}", state.TriggerRightStatus);
-  spdlog::info("\tTriggerLeftStopLocation: {}", state.TriggerLeftStopLocation);
-  spdlog::info("\tTriggerLeftStatus: {}", state.TriggerLeftStatus);
-  spdlog::info("\tTriggerRightEffect: {}", state.TriggerRightEffect);
-  spdlog::info("\tTriggerLeftEffect: {}", state.TriggerLeftEffect);
-  spdlog::info("\tPowerPercent: {}", state.PowerPercent);
-  spdlog::info("\tPowerState: {}", power_state_to_string(state.powerState));
-  spdlog::info("\tPluggedHeadphones: {}", state.PluggedHeadphones);
-  spdlog::info("\tPluggedMic: {}", state.PluggedMic);
-  spdlog::info("\tMicMuted: {}", state.MicMuted);
-  spdlog::info("\tPluggedUsbData: {}", state.PluggedUsbData);
-  spdlog::info("\tPluggedUsbPower: {}", state.PluggedUsbPower);
-  spdlog::info("\tPluggedExternalMic: {}", state.PluggedExternalMic);
-  spdlog::info("\tHapticLowPassFilter: {}", state.HapticLowPassFilter);
+  LOG_INFO("\tTriggerRightStopLocation: {}", state.TriggerRightStopLocation);
+  LOG_INFO("\tTriggerRightStatus: {}", state.TriggerRightStatus);
+  LOG_INFO("\tTriggerLeftStopLocation: {}", state.TriggerLeftStopLocation);
+  LOG_INFO("\tTriggerLeftStatus: {}", state.TriggerLeftStatus);
+  LOG_INFO("\tTriggerRightEffect: {}", state.TriggerRightEffect);
+  LOG_INFO("\tTriggerLeftEffect: {}", state.TriggerLeftEffect);
+  LOG_INFO("\tPowerPercent: {}", state.PowerPercent);
+  LOG_INFO("\tPowerState: {}", power_state_to_string(state.powerState));
+  LOG_INFO("\tPluggedHeadphones: {}", state.PluggedHeadphones);
+  LOG_INFO("\tPluggedMic: {}", state.PluggedMic);
+  LOG_INFO("\tMicMuted: {}", state.MicMuted);
+  LOG_INFO("\tPluggedUsbData: {}", state.PluggedUsbData);
+  LOG_INFO("\tPluggedUsbPower: {}", state.PluggedUsbPower);
+  LOG_INFO("\tPluggedExternalMic: {}", state.PluggedExternalMic);
+  LOG_INFO("\tHapticLowPassFilter: {}", state.HapticLowPassFilter);
 }
 
 void InputReader::PrintControllerStateBt(BTSimpleGetStateData const& state) {
-  spdlog::info("Controller State (BT)");
-  spdlog::info("\tLeftStick: {}, {}", state.LeftStickX, state.LeftStickY);
-  spdlog::info("\tRightStick: {}, {}", state.RightStickX, state.RightStickY);
-  spdlog::info("\tDPad: {}", dpad_to_string(state.DPad));
-  spdlog::info("\tButtonSquare: {}", state.ButtonSquare);
-  spdlog::info("\tButtonCross: {}", state.ButtonCross);
-  spdlog::info("\tButtonCircle: {}", state.ButtonCircle);
-  spdlog::info("\tButtonTriangle: {}", state.ButtonTriangle);
-  spdlog::info("\tButtonL1: {}", state.ButtonL1);
-  spdlog::info("\tButtonR1: {}", state.ButtonR1);
-  spdlog::info("\tButtonL2: {}", state.ButtonL2);
-  spdlog::info("\tButtonR2: {}", state.ButtonR2);
-  spdlog::info("\tButtonShare: {}", state.ButtonShare);
-  spdlog::info("\tButtonOptions: {}", state.ButtonOptions);
-  spdlog::info("\tButtonL3: {}", state.ButtonL3);
-  spdlog::info("\tButtonR3: {}", state.ButtonR3);
-  spdlog::info("\tButtonHome: {}", state.ButtonHome);
-  spdlog::info("\tButtonPad: {}", state.ButtonPad);
-  spdlog::info("\tCounter: {}", state.Counter);
-  spdlog::info("\tTriggerLeft: {}", state.TriggerLeft);
-  spdlog::info("\tTriggerRight: {}", state.TriggerRight);
+  LOG_INFO("Controller State (BT)");
+  LOG_INFO("\tLeftStick: {}, {}", state.LeftStickX, state.LeftStickY);
+  LOG_INFO("\tRightStick: {}, {}", state.RightStickX, state.RightStickY);
+  LOG_INFO("\tDPad: {}", dpad_to_string(state.DPad));
+  LOG_INFO("\tButtonSquare: {}", state.ButtonSquare);
+  LOG_INFO("\tButtonCross: {}", state.ButtonCross);
+  LOG_INFO("\tButtonCircle: {}", state.ButtonCircle);
+  LOG_INFO("\tButtonTriangle: {}", state.ButtonTriangle);
+  LOG_INFO("\tButtonL1: {}", state.ButtonL1);
+  LOG_INFO("\tButtonR1: {}", state.ButtonR1);
+  LOG_INFO("\tButtonL2: {}", state.ButtonL2);
+  LOG_INFO("\tButtonR2: {}", state.ButtonR2);
+  LOG_INFO("\tButtonShare: {}", state.ButtonShare);
+  LOG_INFO("\tButtonOptions: {}", state.ButtonOptions);
+  LOG_INFO("\tButtonL3: {}", state.ButtonL3);
+  LOG_INFO("\tButtonR3: {}", state.ButtonR3);
+  LOG_INFO("\tButtonHome: {}", state.ButtonHome);
+  LOG_INFO("\tButtonPad: {}", state.ButtonPad);
+  LOG_INFO("\tCounter: {}", state.Counter);
+  LOG_INFO("\tTriggerLeft: {}", state.TriggerLeft);
+  LOG_INFO("\tTriggerRight: {}", state.TriggerRight);
 }

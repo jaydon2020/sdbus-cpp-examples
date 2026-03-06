@@ -1,34 +1,35 @@
 #include <chrono>
-#include <thread>
+
+#include "../utils/signal_handler.h"
 #include "systemd1_manager_client.h"
 
 int main() {
-  auto connection = sdbus::createSystemBusConnection();
-  connection->enterEventLoopAsync();
+  try {
+    installSignalHandlers();
 
-  Systemd1ManagerClient client(*connection);
+    const auto connection = sdbus::createSystemBusConnection();
+    connection->enterEventLoopAsync();
 
-  // Optional unit start (avoid direct Unit_proxy instantiation; use generic
-  // proxy)
-  if (const char* unitPathEnv = std::getenv("SYSTEMD_UNIT_PATH")) {
-    try {
-      const auto unitPath = sdbus::ObjectPath(unitPathEnv);
-      const auto unitProxy = sdbus::createProxy(
-          *connection, sdbus::ServiceName(Systemd1ManagerClient::SERVICE_NAME),
-          unitPath);
-      unitProxy->callMethod("Start")
-          .onInterface(org::freedesktop::systemd1::Unit_proxy::INTERFACE_NAME)
-          .withArguments(std::string("replace"));
-      spdlog::info("Attempted Start on unit {}", unitPathEnv);
-    } catch (const sdbus::Error& e) {
-      spdlog::error("Failed to start unit {}: {} - {}", unitPathEnv,
-                    e.getName(), e.getMessage());
+    Systemd1ManagerClient manager(*connection);
+
+    LOG_INFO("Systemd1 monitor daemon running - Press Ctrl+C to exit");
+
+    auto result = monitorLoop(*connection);
+
+    if (result) {
+      LOG_ERROR("Exiting due to: {}", *result);
+    } else {
+      LOG_INFO("Shutting down...");
     }
+
+    connection->leaveEventLoop();
+    return result ? 1 : 0;
+
+  } catch (const sdbus::Error& e) {
+    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    return 1;
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception: {}", e.what());
+    return 1;
   }
-
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(5s);  // collect signals
-
-  connection->leaveEventLoop();
-  return 0;
 }

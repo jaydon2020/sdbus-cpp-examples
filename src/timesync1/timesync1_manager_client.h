@@ -18,10 +18,11 @@
 #include "../proxy/org/freedesktop/timesync1/manager_proxy.h"
 
 #include <sdbus-c++/sdbus-c++.h>
-#include <spdlog/spdlog.h>
 
 #include <string>
 #include <vector>
+
+#include "../utils/logging.h"
 
 class Timesync1ManagerClient
     : public org::freedesktop::timesync1::Manager_proxy {
@@ -36,38 +37,38 @@ class Timesync1ManagerClient
     logVector("FallbackNTPServers", FallbackNTPServers());
   }
   void dumpTiming() {
-    spdlog::info("PollIntervalMinUSec : {}", PollIntervalMinUSec());
-    spdlog::info("PollIntervalMaxUSec : {}", PollIntervalMaxUSec());
-    spdlog::info("PollIntervalUSec    : {}", PollIntervalUSec());
-    spdlog::info("RootDistanceMaxUSec : {}", RootDistanceMaxUSec());
-    spdlog::info("Frequency           : {}", Frequency());
+    LOG_INFO("PollIntervalMinUSec : {}", PollIntervalMinUSec());
+    LOG_INFO("PollIntervalMaxUSec : {}", PollIntervalMaxUSec());
+    LOG_INFO("PollIntervalUSec    : {}", PollIntervalUSec());
+    LOG_INFO("RootDistanceMaxUSec : {}", RootDistanceMaxUSec());
+    LOG_INFO("Frequency           : {}", Frequency());
   }
   void dumpServer() {
-    spdlog::info("ServerName          : {}", ServerName());
+    LOG_INFO("ServerName          : {}", ServerName());
     auto addr = ServerAddress();
-    spdlog::info("ServerAddress family={} bytes={}", addr.get<0>(),
-                 addr.get<1>().size());
+    LOG_INFO("ServerAddress family={} bytes={}", addr.get<0>(),
+             addr.get<1>().size());
   }
   void setRuntimeServersExample() {
     std::vector<std::string> servers{"time1.google.com", "time.cloudflare.com"};
     try {
-      spdlog::info("Setting RuntimeNTPServers...");
+      LOG_INFO("Setting RuntimeNTPServers...");
       SetRuntimeNTPServers(servers);
       logVector("Updated RuntimeNTPServers", RuntimeNTPServers());
     } catch (const sdbus::Error& e) {
-      spdlog::warn("SetRuntimeNTPServers failed: {} ({})", e.getName(),
-                   e.getMessage());
+      LOG_WARN("SetRuntimeNTPServers failed: {} ({})", e.getName(),
+               e.getMessage());
     }
   }
 
  private:
   static void logVector(const char* label, const std::vector<std::string>& v) {
     if (v.empty()) {
-      spdlog::info("{}: (empty)", label);
+      LOG_INFO("{}: (empty)", label);
       return;
     }
     for (const auto& s : v)
-      spdlog::info("{}: {}", label, s);
+      LOG_INFO("{}: {}", label, s);
   }
 };
 

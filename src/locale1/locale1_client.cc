@@ -14,6 +14,7 @@
 
 #include "locale1_client.h"
 
+#include "../utils/logging.h"
 #include "../utils/utils.h"
 
 Locale1Client::Locale1Client(sdbus::IConnection& connection)
@@ -84,5 +85,5 @@ void Locale1Client::printLocale1() const {
        << std::endl;
   }
 
-  spdlog::info("\n{}", os.str());
+  LOG_INFO("\n{}", os.str());
 }

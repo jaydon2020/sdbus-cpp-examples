@@ -12,17 +12,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "../utils/signal_handler.h"
 #include "bluez_client.h"
 
 int main() {
-  const auto connection = sdbus::createSystemBusConnection();
-  connection->enterEventLoopAsync();
+  try {
+    // Initialize logging with environment variable configuration
+    logging_config::initializeLogging("bluez_client");
 
-  BluezClient client(*connection);
+    installSignalHandlers();
 
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(120000ms);
-  connection->leaveEventLoop();
+    const auto connection = sdbus::createSystemBusConnection();
+    connection->enterEventLoopAsync();
 
-  return 0;
+    BluezClient client(*connection);
+
+    LOG_INFO("BlueZ client running - Press Ctrl+C to exit");
+
+    // Monitor loop with shared connection health timing defaults
+    auto result = monitorLoop(*connection);
+
+    if (result) {
+      // Connection was lost
+      LOG_ERROR("Exiting due to: {}", *result);
+    } else {
+      // Graceful shutdown via signal
+      LOG_INFO("Shutting down...");
+    }
+
+    connection->leaveEventLoop();
+
+    return result ? 1 : 0;
+
+  } catch (const sdbus::Error& e) {
+    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    return 1;
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception: {}", e.what());
+    return 1;
+  }
 }

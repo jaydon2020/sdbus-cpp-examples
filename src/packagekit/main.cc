@@ -13,17 +13,16 @@
 // limitations under the License.
 
 #include "packagekit_client.h"
-#include "packagekit_transaction.h"
 
+#include "../utils/logging.h"
 #include "../utils/utils.h"
 
 int main() {
   const auto connection = sdbus::createSystemBusConnection();
   connection->enterEventLoopAsync();
 
-  PackageKitClient client(*connection);
-
   {
+    PackageKitClient client(*connection);
     std::promise<std::map<sdbus::PropertyName, sdbus::Variant>> promise;
     auto future = promise.get_future();
 
@@ -42,7 +41,7 @@ int main() {
     Utils::print_changed_properties(
         sdbus::InterfaceName(PackageKitClient::INTERFACE_NAME), properties, {});
     auto state = client.GetDaemonState();
-    spdlog::info("Daemon {}", state);
+    LOG_INFO("Daemon {}", state);
   }
 
   connection->leaveEventLoop();

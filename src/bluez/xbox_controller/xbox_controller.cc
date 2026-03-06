@@ -16,6 +16,8 @@
 
 #include <poll.h>
 
+#include "../../utils/property_utils.h"
+#include "../../utils/resource_limits.h"
 #include "../hidraw.hpp"
 
 const std::vector<std::pair<std::string, std::string>> input_match_params_bt = {
@@ -38,10 +40,9 @@ XboxController::XboxController(sdbus::IConnection& connection)
                   [&](const char* action,
                       const char* dev_node,
                       const char* sub_system) {
-                    spdlog::debug("Action: {}, Device: {}, Subsystem: {}",
-                                  action ? action : "",
-                                  dev_node ? dev_node : "",
-                                  sub_system ? sub_system : "");
+                    LOG_DEBUG("Action: {}, Device: {}, Subsystem: {}",
+                              action ? action : "", dev_node ? dev_node : "",
+                              sub_system ? sub_system : "");
                     if (std::strcmp(sub_system, "hidraw") == 0) {
                       if (std::strcmp(action, "remove") == 0) {
                         input_reader_->stop();
@@ -79,6 +80,12 @@ void XboxController::onInterfacesAdded(
     if (interface == org::bluez::Adapter1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(adapters_mutex_);
       if (!adapters_.contains(objectPath)) {
+        if (resource_limits::IsAtCapacity(adapters_.size(),
+                                          resource_limits::kMaxAdapters)) {
+          LOG_WARN("Skipping Adapter1 {}: resource limit reached ({}/{})",
+                   objectPath, adapters_.size(), resource_limits::kMaxAdapters);
+          continue;
+        }
         auto adapter1 = std::make_unique<Adapter1>(
             getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
             objectPath, properties);
@@ -86,67 +93,108 @@ void XboxController::onInterfacesAdded(
       }
     } else if (interface == org::bluez::Device1_proxy::INTERFACE_NAME) {
       auto mod_alias_key = sdbus::MemberName("Modalias");
-      if (!properties.contains(mod_alias_key))
-        continue;
 
-      auto mod_alias = Device1::parse_modalias(
-          properties.at(mod_alias_key).get<std::string>());
-      if (mod_alias.has_value()) {
+      // Safely get the Modalias property
+      auto mod_alias_str =
+          property_utils::getProperty<std::string>(properties, mod_alias_key);
+      if (!mod_alias_str) {
+        continue;  // Skip devices without Modalias
+      }
+
+      if (auto mod_alias = Device1::parse_modalias(*mod_alias_str);
+          mod_alias.has_value()) {
         if (auto [vid, pid, did] = mod_alias.value();
             vid != VENDOR_ID || (pid != PRODUCT_ID0 && pid != PRODUCT_ID1)) {
           continue;
         }
-        spdlog::debug("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
-                      mod_alias.value().pid, mod_alias.value().did);
+        LOG_DEBUG("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
+                  mod_alias.value().pid, mod_alias.value().did);
       } else {
-        spdlog::debug("modalias has no value assigned: {}", objectPath);
+        LOG_DEBUG("modalias has no value assigned: {}", objectPath);
         continue;
       }
 
-      std::scoped_lock lock(devices_mutex_);
-      if (!devices_.contains(objectPath)) {
+      std::string power_path_to_add;
+      std::string hidraw_device_key;
+      {
+        std::scoped_lock lock(devices_mutex_);
+        if (devices_.contains(objectPath)) {
+          continue;
+        }
+
+        if (resource_limits::IsAtCapacity(devices_.size(),
+                                          resource_limits::kMaxDevices)) {
+          LOG_WARN("Skipping Device1 {}: resource limit reached ({}/{})",
+                   objectPath, devices_.size(), resource_limits::kMaxDevices);
+          continue;
+        }
+
         auto device = std::make_unique<Device1>(
             getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
             objectPath, properties);
 
         if (auto props = device->GetProperties(); props.modalias.has_value()) {
           auto [vid, pid, did] = props.modalias.value();
-          spdlog::info("Adding: {}, {}, {}", vid, pid, did);
+          LOG_INFO("Adding: {}, {}, {}", vid, pid, did);
           if ((vid == VENDOR_ID && pid == PRODUCT_ID0) ||
               (vid == VENDOR_ID && pid == PRODUCT_ID1)) {
             if (props.connected && props.paired && props.trusted) {
-              const auto dev_key =
+              hidraw_device_key =
                   create_device_key_from_serial_number(props.address);
-              HidDevicesLock();
-              if (HidDevicesContains(dev_key)) {
-                spdlog::info("Adding hidraw device: {}", dev_key);
-                if (!input_reader_) {
-                  input_reader_ =
-                      std::make_unique<InputReader>(GetHidDevice(dev_key));
-                  input_reader_->start();
-                }
-              }
-              HidDevicesUnlock();
             }
 
-            // Add UPower Display Device
-            if (std::string power_path =
-                    convert_mac_to_upower_path(props.address);
-                !upower_clients_.contains(power_path)) {
-              upower_display_devices_mutex_.lock();
-              spdlog::info("[Add] UPower Display Device: {}", power_path);
-              upower_clients_[power_path] = std::make_unique<UPowerClient>(
-                  getProxy().getConnection(), sdbus::ObjectPath(power_path));
-              upower_display_devices_mutex_.unlock();
-            }
+            power_path_to_add = convert_mac_to_upower_path(props.address);
           }
         }
 
         devices_[objectPath] = std::move(device);
       }
+
+      if (!hidraw_device_key.empty()) {
+        std::string hidraw_device;
+        HidDevicesLock();
+        if (HidDevicesContains(hidraw_device_key)) {
+          hidraw_device = GetHidDevice(hidraw_device_key);
+        }
+        HidDevicesUnlock();
+
+        if (!hidraw_device.empty()) {
+          LOG_INFO("Adding hidraw device: {}", hidraw_device_key);
+          if (!input_reader_) {
+            input_reader_ = std::make_unique<InputReader>(hidraw_device);
+            input_reader_->start();
+          }
+        }
+      }
+
+      // Avoid nested locking with devices_mutex_ +
+      // upower_display_devices_mutex_.
+      if (!power_path_to_add.empty()) {
+        std::scoped_lock power_lock(upower_display_devices_mutex_);
+        if (!upower_clients_.contains(power_path_to_add)) {
+          if (resource_limits::IsAtCapacity(
+                  upower_clients_.size(), resource_limits::kMaxUPowerClients)) {
+            LOG_WARN(
+                "Skipping UPower client {}: resource limit reached ({}/{})",
+                power_path_to_add, upower_clients_.size(),
+                resource_limits::kMaxUPowerClients);
+            continue;
+          }
+          LOG_INFO("[Add] UPower Display Device: {}", power_path_to_add);
+          upower_clients_[power_path_to_add] = std::make_unique<UPowerClient>(
+              getProxy().getConnection(), sdbus::ObjectPath(power_path_to_add));
+        }
+      }
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
       std::lock_guard lock(input1_mutex_);
       if (!input1_.contains(objectPath)) {
+        if (resource_limits::IsAtCapacity(input1_.size(),
+                                          resource_limits::kMaxInputEntries)) {
+          LOG_WARN("Skipping Input1 {}: resource limit reached ({}/{})",
+                   objectPath, input1_.size(),
+                   resource_limits::kMaxInputEntries);
+          continue;
+        }
         input1_[objectPath] = std::make_unique<Input1>(
             getProxy().getConnection(),
             sdbus::ServiceName(org::bluez::Input1_proxy::INTERFACE_NAME),
@@ -162,52 +210,46 @@ void XboxController::onInterfacesRemoved(
   for (const auto& interface : interfaces) {
     if (interface == org::bluez::Adapter1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(adapters_mutex_);
-      if (!adapters_.contains(objectPath)) {
-        if (adapters_.contains(objectPath)) {
-          adapters_[objectPath].reset();
-          adapters_.erase(objectPath);
-        }
+      if (adapters_.contains(objectPath)) {
+        adapters_[objectPath].reset();
+        adapters_.erase(objectPath);
       }
     } else if (interface == org::bluez::Device1_proxy::INTERFACE_NAME) {
-      std::scoped_lock devices_lock(devices_mutex_);
-      if (!devices_.contains(objectPath)) {
+      std::string power_path_to_remove;
+      {
+        std::scoped_lock devices_lock(devices_mutex_);
         if (devices_.contains(objectPath)) {
-          devices_[objectPath].reset();
+          auto& device = devices_[objectPath];
+          if (auto props = device->GetProperties();
+              props.modalias.has_value()) {
+            auto [vid, pid, did] = props.modalias.value();
+            LOG_INFO("Removing: {}, {}, {}", vid, pid, did);
+            if ((vid == VENDOR_ID && pid == PRODUCT_ID0) ||
+                (vid == VENDOR_ID && pid == PRODUCT_ID1)) {
+              power_path_to_remove = convert_mac_to_upower_path(props.address);
+            }
+          }
+
+          device.reset();
           devices_.erase(objectPath);
+        }
+      }
+
+      if (!power_path_to_remove.empty()) {
+        std::scoped_lock power_lock(upower_display_devices_mutex_);
+        if (upower_clients_.contains(power_path_to_remove)) {
+          LOG_INFO("[Remove] UPower Display Device: {}", power_path_to_remove);
+          auto& power_device = upower_clients_[power_path_to_remove];
+          power_device.reset();
+          upower_clients_.erase(power_path_to_remove);
         }
       }
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
       std::lock_guard lock(input1_mutex_);
-      if (!input1_.contains(objectPath)) {
+      if (input1_.contains(objectPath)) {
         input1_[objectPath].reset();
         input1_.erase(objectPath);
       }
-    }
-  }
-  for (auto it = interfaces.begin(); it != interfaces.end(); ++it) {
-    std::scoped_lock lock(devices_mutex_);
-    if (devices_.contains(objectPath)) {
-      auto& device = devices_[objectPath];
-
-      if (auto props = device->GetProperties(); props.modalias.has_value()) {
-        auto [vid, pid, did] = props.modalias.value();
-        spdlog::info("Removing: {}, {}, {}", vid, pid, did);
-        if ((vid == VENDOR_ID && pid == PRODUCT_ID0) ||
-            (vid == VENDOR_ID && pid == PRODUCT_ID1)) {
-          if (std::string power_path =
-                  convert_mac_to_upower_path(props.address);
-              upower_clients_.contains(power_path)) {
-            std::scoped_lock power_lock(upower_display_devices_mutex_);
-            spdlog::info("[Remove] UPower Display Device: {}", power_path);
-            auto& power_device = upower_clients_[power_path];
-            power_device.reset();
-            upower_clients_.erase(power_path);
-          }
-        }
-      }
-
-      device.reset();
-      devices_.erase(objectPath);
     }
   }
 }

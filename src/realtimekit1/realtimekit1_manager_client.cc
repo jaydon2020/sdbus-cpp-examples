@@ -13,14 +13,14 @@
 // limitations under the License.
 
 #include "realtimekit1_manager_client.h"
+#include "../utils/logging.h"
 
 void exerciseRealtime(RealtimeKit1ManagerClient& client) {
   client.dumpProperties();
   client.tryHighPriority(-5);  // illustrative nice level
-  auto maxRT = client.MaxRealtimePriority();
-  if (maxRT > 1) {
+  if (const auto maxRT = client.MaxRealtimePriority(); maxRT > 1) {
     client.tryRealtime(static_cast<uint32_t>(maxRT / 2));
   } else {
-    spdlog::info("MaxRealtimePriority too low to attempt realtime scheduling");
+    LOG_INFO("MaxRealtimePriority too low to attempt realtime scheduling");
   }
 }
