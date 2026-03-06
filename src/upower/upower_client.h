@@ -18,8 +18,8 @@
 #include <utility>
 
 #include "../proxy/org/freedesktop/UPower/upower_proxy.h"
-#include "../utils/utils.h"
 #include "../utils/logging.h"
+#include "../utils/utils.h"
 #include "upower_display_device.h"
 
 class UPowerDisplayDevice;

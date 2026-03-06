@@ -14,8 +14,8 @@
 
 #include "timedate1_client.h"
 
-#include "../utils/utils.h"
 #include "../utils/logging.h"
+#include "../utils/utils.h"
 
 int main() {
   const auto connection = sdbus::createSystemBusConnection();
@@ -35,8 +35,7 @@ int main() {
           if (!error)
             promises[i].set_value(std::move(values));
           else
-            promises[i].set_exception(
-                std::make_exception_ptr(*error));
+            promises[i].set_exception(std::make_exception_ptr(*error));
         });
   }
 

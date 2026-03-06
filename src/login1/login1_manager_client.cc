@@ -51,7 +51,7 @@ Login1ManagerClient::Login1ManagerClient(sdbus::IConnection& connection)
           }
         } else
           LOG_ERROR("[{}] {} - {}", Manager_proxy::INTERFACE_NAME,
-                        error->getName(), error->getMessage());
+                    error->getName(), error->getMessage());
       });
   registerProxy();
 }

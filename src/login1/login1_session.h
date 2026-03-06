@@ -16,8 +16,8 @@
 #define SRC_LOGIN1_LOGIN1_SESSION_H
 
 #include "../proxy/org/freedesktop/login1/Session/session_proxy.h"
-#include "../utils/utils.h"
 #include "../utils/logging.h"
+#include "../utils/utils.h"
 
 class Login1Session final
     : public sdbus::ProxyInterfaces<sdbus::Properties_proxy,
@@ -41,7 +41,7 @@ class Login1Session final
                   {});
             } else
               LOG_ERROR("login1.Session: {} - {}", error->getName(),
-                            error->getMessage());
+                        error->getMessage());
           });
     }
   }
@@ -61,7 +61,7 @@ class Login1Session final
       LOG_INFO(os.str());
     } catch (const sdbus::Error& e) {
       LOG_ERROR("Failed to get session properties for {}: {} - {}",
-                    object_path_, e.getName(), e.getMessage());
+                object_path_, e.getName(), e.getMessage());
     }
   }
 
@@ -83,14 +83,14 @@ class Login1Session final
                      const uint32_t& minor,
                      const std::string& type) override {
     LOG_INFO("[Login1Session] onPauseDevice: major={}, minor={}, type={}",
-                 major, minor, type);
+             major, minor, type);
   }
 
   void onResumeDevice(const uint32_t& major,
                       const uint32_t& minor,
                       const sdbus::UnixFd& fd) override {
-    LOG_INFO("[Login1Session] onResumeDevice: major={}, minor={}, fd={}",
-                 major, minor, fd.get());
+    LOG_INFO("[Login1Session] onResumeDevice: major={}, minor={}, fd={}", major,
+             minor, fd.get());
   }
 
   void onLock() override { LOG_INFO("[Login1Session] onLock"); }

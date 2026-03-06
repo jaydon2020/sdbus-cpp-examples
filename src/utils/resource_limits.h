@@ -36,4 +36,3 @@ inline bool IsAtCapacity(const std::size_t current_size,
 }  // namespace resource_limits
 
 #endif  // SRC_UTILS_RESOURCE_LIMITS_H_
-

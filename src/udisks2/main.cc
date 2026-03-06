@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "udisks2_manager.h"
 #include "../utils/signal_handler.h"
+#include "udisks2_manager.h"
 
 int main() {
   try {

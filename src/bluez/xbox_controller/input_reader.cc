@@ -19,10 +19,9 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 
+#include "../../utils/logging.h"
 #include "../hidraw.hpp"
 #include "input_reader.h"
-#include "../../utils/logging.h"
-
 
 InputReader::InputReader(std::string device)
     : device_(std::move(device)), stop_flag_(false) {}
@@ -164,13 +163,12 @@ std::string InputReader::dpad_to_string(const Direction dpad) {
 
 void InputReader::PrintInputReport1(const inputReport01_t& input_report01) {
   LOG_INFO("Stick L/R: [{},{}] [{},{}] ", input_report01.GD_GamepadPointerX,
-               input_report01.GD_GamepadPointerY,
-               input_report01.GD_GamepadPointerZ,
-               input_report01.GD_GamepadPointerRz);
+           input_report01.GD_GamepadPointerY, input_report01.GD_GamepadPointerZ,
+           input_report01.GD_GamepadPointerRz);
   LOG_INFO("Trigger L/R: {}, {}", input_report01.SIM_GamepadBrake,
-               input_report01.SIM_GamepadAccelerator);
+           input_report01.SIM_GamepadAccelerator);
   LOG_INFO("D-PAD: {}", dpad_to_string(static_cast<Direction>(
-                                input_report01.GD_GamepadHatSwitch)));
+                            input_report01.GD_GamepadHatSwitch)));
   LOG_INFO("A: {}", input_report01.BTN_GamepadButton1);
   LOG_INFO("B: {}", input_report01.BTN_GamepadButton2);
   LOG_INFO("Button3: {}", input_report01.BTN_GamepadButton3);
@@ -190,25 +188,24 @@ void InputReader::PrintInputReport1(const inputReport01_t& input_report01) {
 }
 
 void InputReader::PrintInputReport2(const inputReport02_t& input_report02) {
-  LOG_INFO("Home Button: {}",
-               input_report02.CD_GamepadConsumerControlAcHome);
+  LOG_INFO("Home Button: {}", input_report02.CD_GamepadConsumerControlAcHome);
 }
 
 void InputReader::PrintOutputReport3(const outputReport03_t& output_report03) {
   LOG_INFO("OutputReport3: {}", output_report03.reportId);
   LOG_INFO("PID_GamepadSetEffectReportDcEnableActuators: {}",
-               output_report03.PID_GamepadSetEffectReportDcEnableActuators);
+           output_report03.PID_GamepadSetEffectReportDcEnableActuators);
   LOG_INFO("PID_GamepadSetEffectReportMagnitude: {}, {}, {}, {}",
-               output_report03.PID_GamepadSetEffectReportMagnitude[0],
-               output_report03.PID_GamepadSetEffectReportMagnitude[1],
-               output_report03.PID_GamepadSetEffectReportMagnitude[2],
-               output_report03.PID_GamepadSetEffectReportMagnitude[3]);
+           output_report03.PID_GamepadSetEffectReportMagnitude[0],
+           output_report03.PID_GamepadSetEffectReportMagnitude[1],
+           output_report03.PID_GamepadSetEffectReportMagnitude[2],
+           output_report03.PID_GamepadSetEffectReportMagnitude[3]);
   LOG_INFO("PID_GamepadSetEffectReportDuration: {}",
-               output_report03.PID_GamepadSetEffectReportDuration);
+           output_report03.PID_GamepadSetEffectReportDuration);
   LOG_INFO("PID_GamepadSetEffectReportStartDelay: {}",
-               output_report03.PID_GamepadSetEffectReportStartDelay);
+           output_report03.PID_GamepadSetEffectReportStartDelay);
   LOG_INFO("PID_GamepadSetEffectReportLoopCount: {}",
-               output_report03.PID_GamepadSetEffectReportLoopCount);
+           output_report03.PID_GamepadSetEffectReportLoopCount);
 }
 
 void InputReader::PrintInputReport4(const inputReport04_t& output_report04) {

@@ -14,8 +14,8 @@
 
 #include "avahi_server.h"
 
-#include "../utils/utils.h"
 #include "../utils/logging.h"
+#include "../utils/utils.h"
 
 int main() {
   const auto connection = sdbus::createSystemBusConnection();
@@ -32,7 +32,7 @@ int main() {
     LOG_INFO("State: {}", server.GetState());
     LOG_INFO("Version: {}", server.GetVersionString());
     LOG_INFO("NSSS upport available: {}",
-                 server.IsNSSSupportAvailable() ? "Yes" : "No");
+             server.IsNSSSupportAvailable() ? "Yes" : "No");
   }
 
   connection->leaveEventLoop();

@@ -16,8 +16,8 @@
 #define SRC_LOGIN1_LOGIN1_SEAT_H
 
 #include "../proxy/org/freedesktop/login1/Seat/seat_proxy.h"
-#include "../utils/utils.h"
 #include "../utils/logging.h"
+#include "../utils/utils.h"
 
 class Login1Seat final
     : public sdbus::ProxyInterfaces<sdbus::Properties_proxy,
@@ -40,7 +40,7 @@ class Login1Seat final
                   sdbus::InterfaceName(Seat_proxy::INTERFACE_NAME), values, {});
             } else
               LOG_ERROR("login1.Seat: {} - {}", error->getName(),
-                            error->getMessage());
+                        error->getMessage());
           });
     }
   }
@@ -59,8 +59,8 @@ class Login1Seat final
       os << "========================================" << std::endl;
       LOG_INFO(os.str());
     } catch (const sdbus::Error& e) {
-      LOG_ERROR("Failed to get seat properties for {}: {} - {}",
-                    object_path_, e.getName(), e.getMessage());
+      LOG_ERROR("Failed to get seat properties for {}: {} - {}", object_path_,
+                e.getName(), e.getMessage());
     }
   }
 

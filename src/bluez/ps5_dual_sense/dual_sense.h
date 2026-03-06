@@ -48,7 +48,8 @@ class DualSense final
 
   // Locking policy: avoid nested locking where possible.
   // If nested locking is required, always acquire in this order:
-  // adapters_mutex_ -> devices_mutex_ -> input1_mutex_ -> upower_display_devices_mutex_.
+  // adapters_mutex_ -> devices_mutex_ -> input1_mutex_ ->
+  // upower_display_devices_mutex_.
   std::mutex adapters_mutex_;
   std::map<sdbus::ObjectPath, std::unique_ptr<Adapter1>> adapters_;
 

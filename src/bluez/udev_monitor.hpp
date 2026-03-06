@@ -200,8 +200,7 @@ class UdevMonitor {
                 spdlog::debug(
                     "Skipping callback for device with missing properties: "
                     "action={}, devnode={}, subsystem={}",
-                    action ? action : "null",
-                    devnode ? devnode : "null",
+                    action ? action : "null", devnode ? devnode : "null",
                     subsystem ? subsystem : "null");
               }
             }

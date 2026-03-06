@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "login1_manager_client.h"
 #include "../utils/signal_handler.h"
+#include "login1_manager_client.h"
 
 int main() {
   try {

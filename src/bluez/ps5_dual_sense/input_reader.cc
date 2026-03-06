@@ -19,11 +19,9 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 
+#include "../../utils/logging.h"
 #include "../hidraw.hpp"
 #include "input_reader.h"
-#include "../../utils/logging.h"
-
-
 
 InputReader::InputReader(std::string device)
     : device_(std::move(device)), stop_flag_(false) {}
@@ -390,13 +388,13 @@ void InputReader::PrintCalibrationData(
   LOG_INFO("HW Calibration Data");
   for (auto const& [abs_code, bias, sens_numer, sens_denom] :
        hw_cal_data.accel) {
-    LOG_INFO("\tAccel {}: bias: {}, sens_numer: {}, sens_denom: {}",
-                 abs_code, bias, sens_numer, sens_denom);
+    LOG_INFO("\tAccel {}: bias: {}, sens_numer: {}, sens_denom: {}", abs_code,
+             bias, sens_numer, sens_denom);
   }
   for (auto const& [abs_code, bias, sens_numer, sens_denom] :
        hw_cal_data.gyro) {
-    LOG_INFO("\tGyro {}: bias: {}, sens_numer: {}, sens_denom: {}",
-                 abs_code, bias, sens_numer, sens_denom);
+    LOG_INFO("\tGyro {}: bias: {}, sens_numer: {}, sens_denom: {}", abs_code,
+             bias, sens_numer, sens_denom);
   }
 }
 
@@ -450,13 +448,11 @@ void InputReader::PrintControllerVersion(
   LOG_INFO("\tDeviceInfo: {}", version.Data.DeviceInfo);
   LOG_INFO("\tUpdateVersion: 0x{:04X}", version.Data.UpdateVersion);
   LOG_INFO("\tUpdateImageInfo: 0x{:02}",
-               static_cast<int>(version.Data.UpdateImageInfo));
-  LOG_INFO("\tUpdateUnk: 0x{:02}",
-               static_cast<int>(version.Data.UpdateUnk));
+           static_cast<int>(version.Data.UpdateImageInfo));
+  LOG_INFO("\tUpdateUnk: 0x{:02}", static_cast<int>(version.Data.UpdateUnk));
   LOG_INFO("\tSblFwVersion: 0x{:08X}", version.Data.SblFwVersion);
   LOG_INFO("\tVenomFwVersion: 0x{:08X}", version.Data.VenomFwVersion);
-  LOG_INFO("\tSpiderDspFwVersion: 0x{:08X}",
-               version.Data.SpiderDspFwVersion);
+  LOG_INFO("\tSpiderDspFwVersion: 0x{:08X}", version.Data.SpiderDspFwVersion);
 }
 
 template <typename T, typename U, typename V>
@@ -494,7 +490,7 @@ void InputReader::PrintControllerStateUsb(
   LOG_INFO("\tButtonRightPaddle: {}", state.ButtonRightPaddle);
   LOG_INFO("\tTimeStamp: {}", state.TimeStamp);
   LOG_INFO("\tAngularVelocity (Raw): {}, {}, {}", state.AngularVelocityX,
-               state.AngularVelocityY, state.AngularVelocityZ);
+           state.AngularVelocityY, state.AngularVelocityZ);
 
   auto gyro_x = mult_frac<int32_t, int16_t, int32_t>(
       hw_cal_data.gyro[0].sens_numer, state.AngularVelocityX,
@@ -508,7 +504,7 @@ void InputReader::PrintControllerStateUsb(
   LOG_INFO("\tAngularVelocity (Cal): {}, {}, {}", gyro_x, gyro_y, gyro_z);
 
   LOG_INFO("\tAccelerometer (Raw): {}, {}, {}", state.AccelerometerX,
-               state.AccelerometerY, state.AccelerometerZ);
+           state.AccelerometerY, state.AccelerometerZ);
 
   auto acc_x = mult_frac<int32_t, int16_t, int32_t>(
       hw_cal_data.accel[0].sens_numer, state.AccelerometerX,
@@ -533,8 +529,7 @@ void InputReader::PrintControllerStateUsb(
       state.touchData.Timestamp, state.touchData.Finger[1].Index,
       state.touchData.Finger[1].FingerX, state.touchData.Finger[1].FingerY,
       state.touchData.Finger[1].NotTouching);
-  LOG_INFO("\tTriggerRightStopLocation: {}",
-               state.TriggerRightStopLocation);
+  LOG_INFO("\tTriggerRightStopLocation: {}", state.TriggerRightStopLocation);
   LOG_INFO("\tTriggerRightStatus: {}", state.TriggerRightStatus);
   LOG_INFO("\tTriggerLeftStopLocation: {}", state.TriggerLeftStopLocation);
   LOG_INFO("\tTriggerLeftStatus: {}", state.TriggerLeftStatus);

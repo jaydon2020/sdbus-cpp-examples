@@ -14,8 +14,8 @@
 
 #include "locale1_client.h"
 
-#include "../utils/utils.h"
 #include "../utils/logging.h"
+#include "../utils/utils.h"
 
 Locale1Client::Locale1Client(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(INTERFACE_NAME),

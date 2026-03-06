@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-#include "horipad_steam.h"
 #include "../../utils/signal_handler.h"
+#include "horipad_steam.h"
 
 int main() {
   try {

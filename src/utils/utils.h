@@ -21,7 +21,6 @@
 #include <sdbus-c++/sdbus-c++.h>
 #include <glaze/glaze.hpp>
 
-
 class Utils {
  public:
   static void append_property(const sdbus::Variant& value,

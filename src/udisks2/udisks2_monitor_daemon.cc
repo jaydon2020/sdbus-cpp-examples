@@ -30,7 +30,6 @@
 #include "../proxy/org/freedesktop/UDisks2/Block/block_proxy.h"
 #include "../utils/logging.h"
 
-
 // Forward declarations
 class RemovableDeviceMonitor;
 
@@ -244,7 +243,7 @@ class RemovableDeviceMonitor final
       }
     } catch (const std::exception& e) {
       LOG_DEBUG("Error checking drive removability for {}: {}",
-                    objectPath.c_str(), e.what());
+                objectPath.c_str(), e.what());
     }
   }
 

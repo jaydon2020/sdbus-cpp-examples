@@ -17,7 +17,7 @@ Network1ManagerClient::Network1ManagerClient(sdbus::IConnection& connection)
              const std::map<sdbus::PropertyName, sdbus::Variant>& values) {
         if (error) {
           LOG_WARN("network1.Manager GetAllAsync failed: {} - {}",
-                       error->getName(), error->getMessage());
+                   error->getName(), error->getMessage());
         } else {
           Utils::print_changed_properties(
               sdbus::InterfaceName(Manager_proxy::INTERFACE_NAME), values, {});
@@ -51,7 +51,7 @@ void Network1ManagerClient::enumerateLinks() {
     LOG_INFO("[network1] Found {} link(s)", links_.size());
     for (const auto& [ifindex, name, path] : links_) {
       LOG_INFO("  ifindex={} name={} path={}", ifindex, name,
-                   static_cast<std::string>(path));
+               static_cast<std::string>(path));
       const auto linkProxy = sdbus::createProxy(
           connection_, sdbus::ServiceName(SERVICE_NAME), path);
       std::string description;

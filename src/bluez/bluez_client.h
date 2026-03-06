@@ -45,7 +45,8 @@ class BluezClient final
   // Mutex protection strategy:
   // - adapters_mutex_ protects adapters_ map
   // - devices_mutex_ protects devices_ map
-  // - gatt_mutex_ protects ALL GATT-related maps (services, characteristics, descriptors)
+  // - gatt_mutex_ protects ALL GATT-related maps (services, characteristics,
+  // descriptors)
   //   These are protected by a single mutex because they form a hierarchy:
   //   Service -> Characteristic -> Descriptor
   //   This prevents deadlocks and simplifies the locking logic

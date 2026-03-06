@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "networkmanager_client.h"
 #include "../utils/signal_handler.h"
+#include "networkmanager_client.h"
 
 int main() {
   try {

@@ -19,10 +19,9 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 
+#include "../../utils/logging.h"
 #include "../hidraw.hpp"
 #include "input_reader.h"
-#include "../../utils/logging.h"
-
 
 InputReader::InputReader(std::string device)
     : device_(std::move(device)), stop_flag_(false) {}
@@ -168,12 +167,12 @@ std::string InputReader::dpad_to_string(const Direction dpad) {
 
 void InputReader::PrintInputReport7(const inputReport07_t& input_report07) {
   LOG_INFO("Stick L/R: [{},{}] [{},{}] ", input_report07.GD_GamepadX,
-               input_report07.GD_GamepadY, input_report07.GD_GamepadZ,
-               input_report07.GD_GamepadRz);
+           input_report07.GD_GamepadY, input_report07.GD_GamepadZ,
+           input_report07.GD_GamepadRz);
   LOG_INFO("L1/L2: {}, {}", input_report07.SIM_GamepadBrake,
-               input_report07.SIM_GamepadAccelerator);
+           input_report07.SIM_GamepadAccelerator);
   LOG_INFO("D-PAD: {}", dpad_to_string(static_cast<Direction>(
-                                input_report07.GD_GamepadHatSwitch)));
+                            input_report07.GD_GamepadHatSwitch)));
   LOG_INFO("A: {}", input_report07.BTN_GamepadButton1);
   LOG_INFO("B: {}", input_report07.BTN_GamepadButton2);
   LOG_INFO("Quick Access: {}", input_report07.BTN_GamepadButton3);

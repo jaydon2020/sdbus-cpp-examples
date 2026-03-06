@@ -16,9 +16,8 @@
 
 #include "udisks2_manager_nvme.h"
 
-#include "../utils/utils.h"
 #include "../utils/logging.h"
-
+#include "../utils/utils.h"
 
 UDisks2Manager::UDisks2Manager(sdbus::IConnection& connection)
     : ProxyInterfaces(connection,

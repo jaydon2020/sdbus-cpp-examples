@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "bluez_client.h"
 #include "../utils/signal_handler.h"
-
+#include "bluez_client.h"
 
 int main() {
   try {

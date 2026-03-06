@@ -1,5 +1,5 @@
-#include "wpa_supplicant1_client.h"
 #include "../utils/signal_handler.h"
+#include "wpa_supplicant1_client.h"
 
 #include <chrono>
 

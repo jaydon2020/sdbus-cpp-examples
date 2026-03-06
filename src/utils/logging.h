@@ -23,7 +23,8 @@
  * - Logging configuration (environment-based setup)
  * - Error reporting macros (standardized logging levels)
  *
- * All other files should include this header instead of including spdlog directly.
+ * All other files should include this header instead of including spdlog
+ * directly.
  *
  * Usage:
  *   #include "src/utils/logging.h"
@@ -42,10 +43,9 @@
 #include <string>
 #include <vector>
 
-#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/rotating_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
-
 
 // ============================================================================
 // LOGGING CONFIGURATION - Environment-based setup
@@ -64,13 +64,20 @@ inline spdlog::level::level_enum getLogLevelFromEnv() {
   }
 
   const std::string level{level_str};
-  if (level == "trace") return spdlog::level::trace;
-  if (level == "debug") return spdlog::level::debug;
-  if (level == "info") return spdlog::level::info;
-  if (level == "warn") return spdlog::level::warn;
-  if (level == "err") return spdlog::level::err;
-  if (level == "critical") return spdlog::level::critical;
-  if (level == "off") return spdlog::level::off;
+  if (level == "trace")
+    return spdlog::level::trace;
+  if (level == "debug")
+    return spdlog::level::debug;
+  if (level == "info")
+    return spdlog::level::info;
+  if (level == "warn")
+    return spdlog::level::warn;
+  if (level == "err")
+    return spdlog::level::err;
+  if (level == "critical")
+    return spdlog::level::critical;
+  if (level == "off")
+    return spdlog::level::off;
 
   return spdlog::level::info;
 }
@@ -94,9 +101,10 @@ inline void initializeLogging(const std::string& logger_name = "default") {
     auto log_file = getLogFilePathFromEnv();
     const char* pattern_str = std::getenv("LOG_PATTERN");
     const std::string pattern = pattern_str ? std::string(pattern_str)
-                                      : "[%Y-%m-%d %H:%M:%S.%e] [%l] %v";
+                                            : "[%Y-%m-%d %H:%M:%S.%e] [%l] %v";
 
-    const auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    const auto console_sink =
+        std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     console_sink->set_level(level);
 
     std::vector<spdlog::sink_ptr> sinks;
@@ -110,7 +118,8 @@ inline void initializeLogging(const std::string& logger_name = "default") {
       sinks.push_back(file_sink);
     }
 
-    const auto logger = std::make_shared<spdlog::logger>(logger_name, sinks.begin(), sinks.end());
+    const auto logger = std::make_shared<spdlog::logger>(
+        logger_name, sinks.begin(), sinks.end());
     logger->set_level(level);
     logger->set_pattern(pattern);
     logger->flush_on(spdlog::level::err);
@@ -128,8 +137,12 @@ inline void initializeLogging(const std::string& logger_name = "default") {
 
 // Helpers for callers that need runtime level/flush configuration without
 // referencing spdlog symbols directly.
-inline void setLevelDebug() { spdlog::set_level(spdlog::level::debug); }
-inline void setLevelInfo() { spdlog::set_level(spdlog::level::info); }
+inline void setLevelDebug() {
+  spdlog::set_level(spdlog::level::debug);
+}
+inline void setLevelInfo() {
+  spdlog::set_level(spdlog::level::info);
+}
 inline void setFlushInterval(const std::chrono::seconds interval) {
   spdlog::flush_every(interval);
 }
@@ -151,7 +164,8 @@ inline void setFlushInterval(const std::chrono::seconds interval) {
 #define LOG_DEBUG(...) spdlog::debug(__VA_ARGS__)
 
 /**
- * @brief INFO - Normal operation: startup/shutdown, significant events (DEFAULT)
+ * @brief INFO - Normal operation: startup/shutdown, significant events
+ * (DEFAULT)
  */
 #define LOG_INFO(...) spdlog::info(__VA_ARGS__)
 
@@ -174,8 +188,8 @@ inline void setFlushInterval(const std::chrono::seconds interval) {
 // ENVIRONMENT VARIABLES FOR LOGGING CONFIGURATION
 // ============================================================================
 //
-// LOG_LEVEL={trace,debug,info,warn,err,critical,off} - Set log level (default: info)
-// LOG_FILE=/path/to/file - Enable file logging with automatic rotation
+// LOG_LEVEL={trace,debug,info,warn,err,critical,off} - Set log level (default:
+// info) LOG_FILE=/path/to/file - Enable file logging with automatic rotation
 // LOG_PATTERN="[%t] [%l] %v" - Custom spdlog pattern string
 //
 // Examples:
@@ -202,4 +216,3 @@ inline void setFlushInterval(const std::chrono::seconds interval) {
 //   Is this application-fatal? -> LOG_CRITICAL before exit
 
 #endif  // SRC_UTILS_LOGGING_H
-

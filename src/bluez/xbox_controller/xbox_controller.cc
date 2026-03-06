@@ -41,9 +41,8 @@ XboxController::XboxController(sdbus::IConnection& connection)
                       const char* dev_node,
                       const char* sub_system) {
                     LOG_DEBUG("Action: {}, Device: {}, Subsystem: {}",
-                                  action ? action : "",
-                                  dev_node ? dev_node : "",
-                                  sub_system ? sub_system : "");
+                              action ? action : "", dev_node ? dev_node : "",
+                              sub_system ? sub_system : "");
                     if (std::strcmp(sub_system, "hidraw") == 0) {
                       if (std::strcmp(action, "remove") == 0) {
                         input_reader_->stop();
@@ -83,9 +82,8 @@ void XboxController::onInterfacesAdded(
       if (!adapters_.contains(objectPath)) {
         if (resource_limits::IsAtCapacity(adapters_.size(),
                                           resource_limits::kMaxAdapters)) {
-          LOG_WARN(
-              "Skipping Adapter1 {}: resource limit reached ({}/{})",
-              objectPath, adapters_.size(), resource_limits::kMaxAdapters);
+          LOG_WARN("Skipping Adapter1 {}: resource limit reached ({}/{})",
+                   objectPath, adapters_.size(), resource_limits::kMaxAdapters);
           continue;
         }
         auto adapter1 = std::make_unique<Adapter1>(
@@ -97,7 +95,8 @@ void XboxController::onInterfacesAdded(
       auto mod_alias_key = sdbus::MemberName("Modalias");
 
       // Safely get the Modalias property
-      auto mod_alias_str = property_utils::getProperty<std::string>(properties, mod_alias_key);
+      auto mod_alias_str =
+          property_utils::getProperty<std::string>(properties, mod_alias_key);
       if (!mod_alias_str) {
         continue;  // Skip devices without Modalias
       }
@@ -109,7 +108,7 @@ void XboxController::onInterfacesAdded(
           continue;
         }
         LOG_DEBUG("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
-                      mod_alias.value().pid, mod_alias.value().did);
+                  mod_alias.value().pid, mod_alias.value().did);
       } else {
         LOG_DEBUG("modalias has no value assigned: {}", objectPath);
         continue;
@@ -126,8 +125,7 @@ void XboxController::onInterfacesAdded(
         if (resource_limits::IsAtCapacity(devices_.size(),
                                           resource_limits::kMaxDevices)) {
           LOG_WARN("Skipping Device1 {}: resource limit reached ({}/{})",
-                       objectPath, devices_.size(),
-                       resource_limits::kMaxDevices);
+                   objectPath, devices_.size(), resource_limits::kMaxDevices);
           continue;
         }
 
@@ -169,12 +167,13 @@ void XboxController::onInterfacesAdded(
         }
       }
 
-      // Avoid nested locking with devices_mutex_ + upower_display_devices_mutex_.
+      // Avoid nested locking with devices_mutex_ +
+      // upower_display_devices_mutex_.
       if (!power_path_to_add.empty()) {
         std::scoped_lock power_lock(upower_display_devices_mutex_);
         if (!upower_clients_.contains(power_path_to_add)) {
-          if (resource_limits::IsAtCapacity(upower_clients_.size(),
-                                            resource_limits::kMaxUPowerClients)) {
+          if (resource_limits::IsAtCapacity(
+                  upower_clients_.size(), resource_limits::kMaxUPowerClients)) {
             LOG_WARN(
                 "Skipping UPower client {}: resource limit reached ({}/{})",
                 power_path_to_add, upower_clients_.size(),
@@ -183,8 +182,7 @@ void XboxController::onInterfacesAdded(
           }
           LOG_INFO("[Add] UPower Display Device: {}", power_path_to_add);
           upower_clients_[power_path_to_add] = std::make_unique<UPowerClient>(
-              getProxy().getConnection(),
-              sdbus::ObjectPath(power_path_to_add));
+              getProxy().getConnection(), sdbus::ObjectPath(power_path_to_add));
         }
       }
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
@@ -193,8 +191,8 @@ void XboxController::onInterfacesAdded(
         if (resource_limits::IsAtCapacity(input1_.size(),
                                           resource_limits::kMaxInputEntries)) {
           LOG_WARN("Skipping Input1 {}: resource limit reached ({}/{})",
-                       objectPath, input1_.size(),
-                       resource_limits::kMaxInputEntries);
+                   objectPath, input1_.size(),
+                   resource_limits::kMaxInputEntries);
           continue;
         }
         input1_[objectPath] = std::make_unique<Input1>(
@@ -222,7 +220,8 @@ void XboxController::onInterfacesRemoved(
         std::scoped_lock devices_lock(devices_mutex_);
         if (devices_.contains(objectPath)) {
           auto& device = devices_[objectPath];
-          if (auto props = device->GetProperties(); props.modalias.has_value()) {
+          if (auto props = device->GetProperties();
+              props.modalias.has_value()) {
             auto [vid, pid, did] = props.modalias.value();
             LOG_INFO("Removing: {}, {}, {}", vid, pid, did);
             if ((vid == VENDOR_ID && pid == PRODUCT_ID0) ||

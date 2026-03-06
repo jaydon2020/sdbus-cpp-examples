@@ -17,7 +17,6 @@
 #include <sdbus-c++/sdbus-c++.h>
 #include "../utils/logging.h"
 
-
 extern void exerciseTimesync(Timesync1ManagerClient&);
 
 int main() {

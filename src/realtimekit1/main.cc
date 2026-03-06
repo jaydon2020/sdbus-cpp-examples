@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "realtimekit1_manager_client.h"
 #include "../utils/logging.h"
+#include "realtimekit1_manager_client.h"
 
 #include <sdbus-c++/sdbus-c++.h>
 

@@ -82,7 +82,8 @@ class Hidraw {
       }
     }
   };
-  using UdevEnumeratePtr = std::unique_ptr<udev_enumerate, UdevEnumerateDeleter>;
+  using UdevEnumeratePtr =
+      std::unique_ptr<udev_enumerate, UdevEnumerateDeleter>;
 
   /**
    * \brief RAII wrapper for udev_device
@@ -122,7 +123,8 @@ class Hidraw {
       return results;  // Safe - both RAII objects clean up
     }
 
-    if (const int res = udev_enumerate_add_match_subsystem(enumerate.get(), sub_system.c_str());
+    if (const int res = udev_enumerate_add_match_subsystem(enumerate.get(),
+                                                           sub_system.c_str());
         res < 0) {
       spdlog::error("Failed to add subsystem match: {}", sub_system);
       return results;  // Safe - RAII cleanup
@@ -150,7 +152,8 @@ class Hidraw {
         continue;  // Skip this device, continue with others
       }
 
-      const auto properties_list = udev_device_get_properties_list_entry(dev.get());
+      const auto properties_list =
+          udev_device_get_properties_list_entry(dev.get());
       udev_list_entry* properties_list_entry;
       udev_list_entry_foreach(properties_list_entry, properties_list) {
         const auto properties_name =
@@ -302,10 +305,10 @@ class Hidraw {
     }
 
     // Extract the common part of the paths (safe now that we've validated)
-    const std::string input_common = input_path.substr(
-        prefix.size(), input_pos - prefix.size());
-    const std::string hidraw_common = hidraw_path.substr(
-        prefix.size(), hidraw_pos - prefix.size());
+    const std::string input_common =
+        input_path.substr(prefix.size(), input_pos - prefix.size());
+    const std::string hidraw_common =
+        hidraw_path.substr(prefix.size(), hidraw_pos - prefix.size());
 
     // Compare the common parts
     return input_common == hidraw_common;

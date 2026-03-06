@@ -1,9 +1,8 @@
 
 #include "packagekit_client.h"
 
-#include "../utils/utils.h"
 #include "../utils/logging.h"
-
+#include "../utils/utils.h"
 
 PackageKitClient::PackageKitClient(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(INTERFACE_NAME),

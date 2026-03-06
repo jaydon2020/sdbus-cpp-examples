@@ -14,8 +14,8 @@
 
 #include <chrono>
 
-#include "geoclue2_manager.h"
 #include "../utils/signal_handler.h"
+#include "geoclue2_manager.h"
 
 int main() {
   try {

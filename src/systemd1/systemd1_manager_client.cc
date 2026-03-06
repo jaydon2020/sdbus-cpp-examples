@@ -8,7 +8,6 @@
 
 #include "../utils/logging.h"
 
-
 Systemd1ManagerClient::Systemd1ManagerClient(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(SERVICE_NAME),
                       sdbus::ObjectPath(OBJECT_PATH)} {
@@ -19,7 +18,7 @@ Systemd1ManagerClient::Systemd1ManagerClient(sdbus::IConnection& connection)
          const std::map<sdbus::PropertyName, sdbus::Variant>& values) {
         if (error) {
           LOG_WARN("systemd1.Manager GetAllAsync failed: {} - {}",
-                       error->getName(), error->getMessage());
+                   error->getName(), error->getMessage());
         } else {
           Utils::print_changed_properties(
               sdbus::InterfaceName(Manager_proxy::INTERFACE_NAME), values, {});
@@ -46,7 +45,7 @@ void Systemd1ManagerClient::onUnitNew(const std::string& id,
                                       const sdbus::ObjectPath& unit) {
   activeUnits_.push_back(id);
   LOG_INFO("[systemd1] UnitNew id={} path={}", id,
-               static_cast<std::string>(unit));
+           static_cast<std::string>(unit));
 }
 
 void Systemd1ManagerClient::onUnitRemoved(const std::string& id,
@@ -54,22 +53,22 @@ void Systemd1ManagerClient::onUnitRemoved(const std::string& id,
   activeUnits_.erase(std::ranges::remove(activeUnits_, id).begin(),
                      activeUnits_.end());
   LOG_INFO("[systemd1] UnitRemoved id={} path={}", id,
-               static_cast<std::string>(unit));
+           static_cast<std::string>(unit));
 }
 
 void Systemd1ManagerClient::onJobNew(const uint32_t& id,
                                      const sdbus::ObjectPath& job,
                                      const std::string& unit) {
   LOG_INFO("[systemd1] JobNew job_id={} job_path={} unit={}", id,
-               static_cast<std::string>(job), unit);
+           static_cast<std::string>(job), unit);
 }
 
 void Systemd1ManagerClient::onJobRemoved(const uint32_t& id,
                                          const sdbus::ObjectPath& job,
                                          const std::string& unit,
                                          const std::string& result) {
-  LOG_INFO("[systemd1] JobRemoved job_id={} job_path={} unit={} result={}",
-               id, static_cast<std::string>(job), unit, result);
+  LOG_INFO("[systemd1] JobRemoved job_id={} job_path={} unit={} result={}", id,
+           static_cast<std::string>(job), unit, result);
 }
 
 void Systemd1ManagerClient::onStartupFinished(const uint64_t& firmware,

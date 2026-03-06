@@ -1,9 +1,8 @@
 
 #include "packagekit_transaction.h"
 
-#include "../utils/utils.h"
 #include "../utils/logging.h"
-
+#include "../utils/utils.h"
 
 PackageKitTransaction::PackageKitTransaction(
     sdbus::IConnection& connection,
@@ -151,14 +150,14 @@ void PackageKitTransaction::onDistroUpgrade(const uint32_t& type,
                                             const std::string& name,
                                             const std::string& summary) {
   LOG_INFO("PackageKitTransaction::onDistroUpgrade: {}, {}, {}", type, name,
-               summary);
+           summary);
 }
 
 void PackageKitTransaction::onItemProgress(const std::string& id,
                                            const uint32_t& status,
                                            const uint32_t& percentage) {
   LOG_INFO("PackageKitTransaction::onItemProgress: {}, {}, {}", id, status,
-               percentage);
+           percentage);
 }
 
 void PackageKitTransaction::onDestroy() {

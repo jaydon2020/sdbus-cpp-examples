@@ -16,8 +16,8 @@
 
 #include <iomanip>
 
-#include "../utils/utils.h"
 #include "../utils/logging.h"
+#include "../utils/utils.h"
 
 Hostname1Client::Hostname1Client(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(INTERFACE_NAME),

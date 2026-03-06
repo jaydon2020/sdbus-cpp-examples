@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-#include "dual_sense.h"
 #include "../../utils/signal_handler.h"
+#include "dual_sense.h"
 
 int main() {
   try {

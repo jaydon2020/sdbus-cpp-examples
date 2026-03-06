@@ -19,7 +19,6 @@
 
 #include "../utils/logging.h"
 
-
 void Utils::append_property(const sdbus::Variant& value,
                             std::ostringstream& os) {
   const std::string_view type = value.peekValueType();

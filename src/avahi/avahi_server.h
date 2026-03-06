@@ -18,8 +18,8 @@
 #include "../proxy/org/freedesktop/Avahi/Server/server_proxy.h"
 #include "../proxy/org/freedesktop/Avahi/Server2/server2_proxy.h"
 
-#include "../utils/utils.h"
 #include "../utils/logging.h"
+#include "../utils/utils.h"
 
 class AvahiServer final
     : public sdbus::ProxyInterfaces<org::freedesktop::Avahi::Server_proxy> {

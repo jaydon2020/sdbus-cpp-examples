@@ -24,7 +24,6 @@
 
 #include "../utils/logging.h"
 
-
 class RealtimeKit1ManagerClient : public org::freedesktop::RealtimeKit1_proxy {
  public:
   explicit RealtimeKit1ManagerClient(sdbus::IProxy& proxy)
@@ -39,14 +38,13 @@ class RealtimeKit1ManagerClient : public org::freedesktop::RealtimeKit1_proxy {
   bool tryHighPriority(int32_t niceLevel) {
     try {
       auto tid = currentTid();
-      LOG_INFO("MakeThreadHighPriority thread={} priority={}", tid,
-                   niceLevel);
+      LOG_INFO("MakeThreadHighPriority thread={} priority={}", tid, niceLevel);
       MakeThreadHighPriority(tid, niceLevel);
       LOG_INFO("High priority change succeeded");
       return true;
     } catch (const sdbus::Error& e) {
       LOG_WARN("High priority change failed: {} ({})", e.getName(),
-                   e.getMessage());
+               e.getMessage());
       return false;
     }
   }
@@ -54,14 +52,12 @@ class RealtimeKit1ManagerClient : public org::freedesktop::RealtimeKit1_proxy {
   bool tryRealtime(uint32_t rtPriority) {
     try {
       auto tid = currentTid();
-      LOG_INFO("MakeThreadRealtime thread={} rtPriority={}", tid,
-                   rtPriority);
+      LOG_INFO("MakeThreadRealtime thread={} rtPriority={}", tid, rtPriority);
       MakeThreadRealtime(tid, rtPriority);
       LOG_INFO("Realtime change succeeded");
       return true;
     } catch (const sdbus::Error& e) {
-      LOG_WARN("Realtime change failed: {} ({})", e.getName(),
-                   e.getMessage());
+      LOG_WARN("Realtime change failed: {} ({})", e.getName(), e.getMessage());
       return false;
     }
   }

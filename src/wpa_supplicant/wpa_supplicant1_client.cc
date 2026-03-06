@@ -5,7 +5,6 @@
 #include "wpa_supplicant1_client.h"
 #include "../utils/logging.h"
 
-
 WpaSupplicant1Client::WpaSupplicant1Client(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(SERVICE_NAME),
                       sdbus::ObjectPath(OBJECT_PATH)},
@@ -17,7 +16,7 @@ WpaSupplicant1Client::WpaSupplicant1Client(sdbus::IConnection& connection)
          const std::map<sdbus::PropertyName, sdbus::Variant>& values) {
         if (error) {
           LOG_WARN("wpa_supplicant1 GetAllAsync failed: {} - {}",
-                       error->getName(), error->getMessage());
+                   error->getName(), error->getMessage());
         } else {
           Utils::print_changed_properties(
               sdbus::InterfaceName(wpa_supplicant1_proxy::INTERFACE_NAME),

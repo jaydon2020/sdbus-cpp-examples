@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "upower_client.h"
 #include "../utils/signal_handler.h"
+#include "upower_client.h"
 
 int main() {
   try {
@@ -22,7 +22,9 @@ int main() {
     const auto connection = sdbus::createSystemBusConnection();
     connection->enterEventLoopAsync();
 
-    UPowerClient client(*connection, sdbus::ObjectPath("/org/freedesktop/UPower/devices/DisplayDevice"));
+    UPowerClient client(
+        *connection,
+        sdbus::ObjectPath("/org/freedesktop/UPower/devices/DisplayDevice"));
 
     LOG_INFO("UPower monitor daemon running - Press Ctrl+C to exit");
 

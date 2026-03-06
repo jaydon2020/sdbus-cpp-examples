@@ -24,7 +24,6 @@
 
 #include "../utils/logging.h"
 
-
 class Timesync1ManagerClient
     : public org::freedesktop::timesync1::Manager_proxy {
  public:
@@ -48,7 +47,7 @@ class Timesync1ManagerClient
     LOG_INFO("ServerName          : {}", ServerName());
     auto addr = ServerAddress();
     LOG_INFO("ServerAddress family={} bytes={}", addr.get<0>(),
-                 addr.get<1>().size());
+             addr.get<1>().size());
   }
   void setRuntimeServersExample() {
     std::vector<std::string> servers{"time1.google.com", "time.cloudflare.com"};
@@ -58,7 +57,7 @@ class Timesync1ManagerClient
       logVector("Updated RuntimeNTPServers", RuntimeNTPServers());
     } catch (const sdbus::Error& e) {
       LOG_WARN("SetRuntimeNTPServers failed: {} ({})", e.getName(),
-                   e.getMessage());
+               e.getMessage());
     }
   }
 

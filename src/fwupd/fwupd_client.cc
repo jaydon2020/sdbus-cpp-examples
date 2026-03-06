@@ -14,9 +14,8 @@
 
 #include "fwupd_client.h"
 
-#include "../utils/utils.h"
 #include "../utils/logging.h"
-
+#include "../utils/utils.h"
 
 FwupdClient::FwupdClient(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(INTERFACE_NAME),
