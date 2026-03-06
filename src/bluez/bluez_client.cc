@@ -20,6 +20,7 @@
 #include "le_advertising_manager1.h"
 #include "media1.h"
 #include "network_server1.h"
+#include "../utils/property_utils.h"
 
 BluezClient::BluezClient(sdbus::IConnection& connection)
     : ProxyInterfaces(connection,
@@ -79,14 +80,28 @@ void BluezClient::onInterfacesAdded(
                org::bluez::GattCharacteristic1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(gatt_mutex_);
       auto key = sdbus::MemberName("Service");
-      auto object_path = properties.at(key).get<sdbus::ObjectPath>();
+
+      // Safely get the Service property
+      auto object_path = property_utils::getProperty<sdbus::ObjectPath>(properties, key);
+      if (!object_path) {
+        spdlog::warn("GattCharacteristic1 at {} missing 'Service' property", objectPath);
+        continue;  // Skip this characteristic
+      }
+
       gatt_characteristics_[objectPath] = std::make_unique<GattCharacteristic1>(
           getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
           objectPath, properties);
     } else if (interface == org::bluez::GattDescriptor1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(gatt_mutex_);
       auto key = sdbus::MemberName("Characteristic");
-      auto object_path = properties.at(key).get<sdbus::ObjectPath>();
+
+      // Safely get the Characteristic property
+      auto object_path = property_utils::getProperty<sdbus::ObjectPath>(properties, key);
+      if (!object_path) {
+        spdlog::warn("GattDescriptor1 at {} missing 'Characteristic' property", objectPath);
+        continue;  // Skip this descriptor
+      }
+
       gatt_descriptors_[objectPath] = std::make_unique<GattDescriptor1>(
           getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
           objectPath, properties);

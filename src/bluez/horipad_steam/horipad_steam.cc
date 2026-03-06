@@ -16,6 +16,7 @@
 
 #include <poll.h>
 
+#include "../../utils/property_utils.h"
 #include "../hidraw.hpp"
 
 const std::vector<std::pair<std::string, std::string>> input_match_params_bt = {
@@ -87,12 +88,15 @@ void HoripadSteam::onInterfacesAdded(
       }
     } else if (interface == org::bluez::Device1_proxy::INTERFACE_NAME) {
       auto mod_alias_key = sdbus::MemberName("Modalias");
-      if (!properties.contains(mod_alias_key))
-        continue;
 
-      auto mod_alias = Device1::parse_modalias(
-          properties.at(mod_alias_key).get<std::string>());
-      if (mod_alias.has_value()) {
+      // Safely get the Modalias property
+      auto mod_alias_str = property_utils::getProperty<std::string>(properties, mod_alias_key);
+      if (!mod_alias_str) {
+        continue;  // Skip devices without Modalias
+      }
+
+      if (auto mod_alias = Device1::parse_modalias(*mod_alias_str);
+          mod_alias.has_value()) {
         spdlog::debug("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
                       mod_alias.value().pid, mod_alias.value().did);
         if (auto [vid, pid, did] = mod_alias.value();
