@@ -17,6 +17,7 @@
 #include <spdlog/spdlog.h>
 
 #include "../../utils/property_utils.h"
+#include "../../utils/resource_limits.h"
 
 const std::vector<std::pair<std::string, std::string>> input_match_bt = {
     {"ID_BUS", "bluetooth"},
@@ -80,6 +81,13 @@ void DualSense::onInterfacesAdded(
     if (interface == org::bluez::Adapter1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(adapters_mutex_);
       if (!adapters_.contains(objectPath)) {
+        if (resource_limits::IsAtCapacity(adapters_.size(),
+                                          resource_limits::kMaxAdapters)) {
+          spdlog::warn(
+              "Skipping Adapter1 {}: resource limit reached ({}/{})",
+              objectPath, adapters_.size(), resource_limits::kMaxAdapters);
+          continue;
+        }
         auto adapter1 = std::make_unique<Adapter1>(
             getProxy().getConnection(), sdbus::ServiceName(INTERFACE_NAME),
             objectPath, properties);
@@ -112,6 +120,14 @@ void DualSense::onInterfacesAdded(
       {
         std::scoped_lock lock(devices_mutex_);
         if (devices_.contains(objectPath)) {
+          continue;
+        }
+
+        if (resource_limits::IsAtCapacity(devices_.size(),
+                                          resource_limits::kMaxDevices)) {
+          spdlog::warn("Skipping Device1 {}: resource limit reached ({}/{})",
+                       objectPath, devices_.size(),
+                       resource_limits::kMaxDevices);
           continue;
         }
 
@@ -158,6 +174,14 @@ void DualSense::onInterfacesAdded(
       if (!power_path_to_add.empty()) {
         std::scoped_lock power_lock(upower_display_devices_mutex_);
         if (!upower_clients_.contains(power_path_to_add)) {
+          if (resource_limits::IsAtCapacity(upower_clients_.size(),
+                                            resource_limits::kMaxUPowerClients)) {
+            spdlog::warn(
+                "Skipping UPower client {}: resource limit reached ({}/{})",
+                power_path_to_add, upower_clients_.size(),
+                resource_limits::kMaxUPowerClients);
+            continue;
+          }
           spdlog::info("[Add] UPower Display Device: {}", power_path_to_add);
           upower_clients_[power_path_to_add] = std::make_unique<UPowerClient>(
               getProxy().getConnection(),
@@ -167,6 +191,13 @@ void DualSense::onInterfacesAdded(
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
       std::lock_guard lock(input1_mutex_);
       if (!input1_.contains(objectPath)) {
+        if (resource_limits::IsAtCapacity(input1_.size(),
+                                          resource_limits::kMaxInputEntries)) {
+          spdlog::warn("Skipping Input1 {}: resource limit reached ({}/{})",
+                       objectPath, input1_.size(),
+                       resource_limits::kMaxInputEntries);
+          continue;
+        }
         input1_[objectPath] = std::make_unique<Input1>(
             getProxy().getConnection(),
             sdbus::ServiceName(org::bluez::Input1_proxy::INTERFACE_NAME),
