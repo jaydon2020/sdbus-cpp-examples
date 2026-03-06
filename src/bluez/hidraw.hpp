@@ -270,11 +270,32 @@ class Hidraw {
       return false;
     }
 
-    // Extract the common part of the paths
+    // Find the positions of "/input" and "/hidraw"
+    const auto input_pos = input_path.find("/input");
+    const auto hidraw_pos = hidraw_path.find("/hidraw");
+
+    // Validate that both substrings were found
+    if (input_pos == std::string::npos) {
+      spdlog::debug("Path does not contain '/input': {}", input_path);
+      return false;
+    }
+
+    if (hidraw_pos == std::string::npos) {
+      spdlog::debug("Path does not contain '/hidraw': {}", hidraw_path);
+      return false;
+    }
+
+    // Ensure the positions are after the prefix
+    if (input_pos < prefix.size() || hidraw_pos < prefix.size()) {
+      spdlog::debug("Invalid path structure - subsystem before prefix");
+      return false;
+    }
+
+    // Extract the common part of the paths (safe now that we've validated)
     const std::string input_common = input_path.substr(
-        prefix.size(), input_path.find("/input") - prefix.size());
+        prefix.size(), input_pos - prefix.size());
     const std::string hidraw_common = hidraw_path.substr(
-        prefix.size(), hidraw_path.find("/hidraw") - prefix.size());
+        prefix.size(), hidraw_pos - prefix.size());
 
     // Compare the common parts
     return input_common == hidraw_common;
