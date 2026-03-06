@@ -37,6 +37,16 @@ class Hidraw {
   Hidraw() = default;
   virtual ~Hidraw() = default;
 
+  // Delete copy operations - this class manages a mutex which cannot be copied
+  Hidraw(const Hidraw&) = delete;
+  Hidraw& operator=(const Hidraw&) = delete;
+
+  // Delete move operations - std::mutex is not movable
+  // If move semantics are required in the future, would need to use
+  // std::unique_ptr<std::mutex> instead of std::mutex directly
+  Hidraw(Hidraw&&) = delete;
+  Hidraw& operator=(Hidraw&&) = delete;
+
   void HidDevicesLock() { devices_mutex_.lock(); }
 
   void HidDevicesUnlock() { devices_mutex_.unlock(); }

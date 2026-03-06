@@ -48,6 +48,19 @@ class UdevMonitor {
     worker_thread_ = std::thread(&UdevMonitor::run, this);
   }
 
+  // Delete copy operations - this class manages a thread and file descriptor
+  UdevMonitor(const UdevMonitor&) = delete;
+  UdevMonitor& operator=(const UdevMonitor&) = delete;
+
+  // Move operations deleted - moving a class with a running thread is complex
+  // and not needed for this use case. If move semantics are required in the
+  // future, would need to:
+  // 1. Stop the thread in the moved-from object
+  // 2. Transfer ownership of file descriptors
+  // 3. Start a new thread in the moved-to object
+  UdevMonitor(UdevMonitor&&) = delete;
+  UdevMonitor& operator=(UdevMonitor&&) = delete;
+
   virtual ~UdevMonitor() {
     stop();
 
