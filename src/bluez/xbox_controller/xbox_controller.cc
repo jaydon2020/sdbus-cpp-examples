@@ -162,23 +162,19 @@ void XboxController::onInterfacesRemoved(
   for (const auto& interface : interfaces) {
     if (interface == org::bluez::Adapter1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(adapters_mutex_);
-      if (!adapters_.contains(objectPath)) {
-        if (adapters_.contains(objectPath)) {
-          adapters_[objectPath].reset();
-          adapters_.erase(objectPath);
-        }
+      if (adapters_.contains(objectPath)) {
+        adapters_[objectPath].reset();
+        adapters_.erase(objectPath);
       }
     } else if (interface == org::bluez::Device1_proxy::INTERFACE_NAME) {
       std::scoped_lock devices_lock(devices_mutex_);
-      if (!devices_.contains(objectPath)) {
-        if (devices_.contains(objectPath)) {
-          devices_[objectPath].reset();
-          devices_.erase(objectPath);
-        }
+      if (devices_.contains(objectPath)) {
+        devices_[objectPath].reset();
+        devices_.erase(objectPath);
       }
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
       std::lock_guard lock(input1_mutex_);
-      if (!input1_.contains(objectPath)) {
+      if (input1_.contains(objectPath)) {
         input1_[objectPath].reset();
         input1_.erase(objectPath);
       }

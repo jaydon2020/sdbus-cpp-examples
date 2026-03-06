@@ -139,41 +139,35 @@ void BluezClient::onInterfacesRemoved(
   std::ostringstream os;
   os << std::endl;
   for (const auto& interface : interfaces) {
+    os << "[" << objectPath << "] Remove - " << interface << std::endl;
+
     if (interface == org::bluez::Adapter1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(adapters_mutex_);
-      if (!adapters_.contains(objectPath)) {
-        if (adapters_.contains(objectPath)) {
-          adapters_[objectPath].reset();
-          adapters_.erase(objectPath);
-        }
+      if (adapters_.contains(objectPath)) {
+        adapters_[objectPath].reset();
+        adapters_.erase(objectPath);
       }
     } else if (interface == org::bluez::Device1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(devices_mutex_);
-      if (!devices_.contains(objectPath)) {
-        if (devices_.contains(objectPath)) {
-          devices_[objectPath].reset();
-          devices_.erase(objectPath);
-        }
+      if (devices_.contains(objectPath)) {
+        devices_[objectPath].reset();
+        devices_.erase(objectPath);
       }
     } else if (interface == org::bluez::GattService1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(gatt_services_mutex_);
-      if (!gatt_services_.contains(objectPath)) {
-        if (gatt_services_.contains(objectPath)) {
-          gatt_services_[objectPath].reset();
-          gatt_services_.erase(objectPath);
-        }
+      if (gatt_services_.contains(objectPath)) {
+        gatt_services_[objectPath].reset();
+        gatt_services_.erase(objectPath);
       }
     } else if (interface == org::bluez::Battery1_proxy::INTERFACE_NAME) {
       std::scoped_lock lock(battery1_mutex_);
-      if (!battery1_.contains(objectPath)) {
-        if (battery1_.contains(objectPath)) {
-          battery1_[objectPath].reset();
-          battery1_.erase(objectPath);
-        }
+      if (battery1_.contains(objectPath)) {
+        battery1_[objectPath].reset();
+        battery1_.erase(objectPath);
       }
     } else if (interface == org::bluez::Input1_proxy::INTERFACE_NAME) {
       std::lock_guard lock(input1_mutex_);
-      if (!input1_.contains(objectPath)) {
+      if (input1_.contains(objectPath)) {
         input1_[objectPath].reset();
         input1_.erase(objectPath);
       }
@@ -189,17 +183,6 @@ void BluezClient::onInterfacesRemoved(
       media1_.reset();
     } else if (interface == org::bluez::NetworkServer1_proxy::INTERFACE_NAME) {
       network_server1_.reset();
-    }
-  }
-  for (auto it = interfaces.begin(); it != interfaces.end(); ++it) {
-    os << "[" << objectPath << "] Remove - " << *it;
-    if (std::next(it) != interfaces.end()) {
-      os << std::endl;
-    }
-    std::scoped_lock lock(devices_mutex_);
-    if (devices_.contains(objectPath)) {
-      devices_[objectPath].reset();
-      devices_.erase(objectPath);
     }
   }
   spdlog::info(os.str());
