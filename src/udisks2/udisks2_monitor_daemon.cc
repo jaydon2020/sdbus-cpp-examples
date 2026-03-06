@@ -282,11 +282,15 @@ std::string byteArrayToString(const std::vector<uint8_t>& bytes) {
 
 // Helper to format size in human-readable format
 std::string formatSize(const uint64_t bytes) {
-  const char* units[] = {"B", "KB", "MB", "GB", "TB"};
+  constexpr const char* units[] = {"B", "KB", "MB", "GB", "TB"};
+  constexpr int max_unit = std::size(units) - 1;
+
   int unit = 0;
   auto size = static_cast<double>(bytes);
 
-  while (size >= 1024.0 && unit < 4) {
+  // Prevent division issues with extreme values
+  // Also ensure we don't exceed available units
+  while (size >= 1024.0 && unit < max_unit && size / 1024.0 < size) {
     size /= 1024.0;
     unit++;
   }
