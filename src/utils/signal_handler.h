@@ -16,7 +16,12 @@
 #define SRC_UTILS_SIGNAL_HANDLER_H
 
 #include <atomic>
+#include <chrono>
 #include <csignal>
+#include <memory>
+#include <optional>
+
+#include <sdbus-c++/sdbus-c++.h>
 #include <spdlog/spdlog.h>
 
 /**
@@ -53,15 +58,71 @@ inline void signalHandler(int signum) {
 /**
  * @brief Install signal handlers for graceful shutdown
  *
- * Call this at the start of main() to enable proper signal handling.
- * After installation, check g_running in your main loop.
+ * Sets up handlers for SIGINT, SIGTERM, and ignores SIGPIPE.
  */
 inline void installSignalHandlers() {
   std::signal(SIGINT, signalHandler);
   std::signal(SIGTERM, signalHandler);
+  std::signal(SIGPIPE, SIG_IGN);  // Prevent crashes on broken pipes
+}
 
-  // Ignore SIGPIPE to prevent crashes on broken pipes
-  std::signal(SIGPIPE, SIG_IGN);
+/**
+ * @brief Check if D-Bus connection is still alive
+ *
+ * Attempts to call a simple method to verify the connection is working.
+ *
+ * @param connection D-Bus connection to check
+ * @return true if the connection is alive, false otherwise
+ */
+inline bool isConnectionAlive(sdbus::IConnection& connection) {
+  try {
+    // Try to get the connection's unique name - this requires communication with the bus
+    const auto proxy = sdbus::createProxy(connection, sdbus::ServiceName("org.freedesktop.DBus"),
+                                          sdbus::ObjectPath("/org/freedesktop/DBus"));
+
+    // Call GetId - a simple method that should always work if the connection is alive
+    std::string bus_id;
+    proxy->callMethod("GetId").onInterface("org.freedesktop.DBus").storeResultsTo(bus_id);
+
+    return true;
+  } catch (const sdbus::Error& e) {
+    spdlog::warn("D-Bus connection check failed: {}", e.what());
+    return false;
+  } catch (const std::exception& e) {
+    spdlog::warn("Connection check exception: {}", e.what());
+    return false;
+  }
+}
+
+/**
+ * @brief Monitor loop with connection health checks
+ *
+ * Periodically checks if the D-Bus connection is still alive and if the
+ * application should continue running.
+ *
+ * @param connection D-Bus connection to monitor
+ * @param check_interval How often to check connection health
+ * @param sleep_interval How long to sleep between checks
+ * @return std::optional<std::string> Error message if connection lost, nullopt if graceful shutdown
+ */
+inline std::optional<std::string> monitorLoop(
+    sdbus::IConnection& connection,
+    const std::chrono::seconds check_interval = std::chrono::seconds(30),
+    const std::chrono::milliseconds sleep_interval = std::chrono::milliseconds(100)) {
+  auto last_check = std::chrono::steady_clock::now();
+
+  while (g_running) {
+    std::this_thread::sleep_for(sleep_interval);
+
+    if (auto now = std::chrono::steady_clock::now(); now - last_check >= check_interval) {
+      if (!isConnectionAlive(connection)) {
+        return "D-Bus connection lost";
+      }
+      last_check = now;
+    }
+  }
+
+  return std::nullopt;  // Graceful shutdown via signal
 }
 
 #endif  // SRC_UTILS_SIGNAL_HANDLER_H

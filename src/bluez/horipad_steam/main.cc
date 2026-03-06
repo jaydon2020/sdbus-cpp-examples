@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <spdlog/spdlog.h>
+
 #include "horipad_steam.h"
 #include "../../utils/signal_handler.h"
 
@@ -30,12 +31,15 @@ int main() {
   using namespace std::chrono_literals;
   spdlog::info("Horipad Steam client running - Press Ctrl+C to exit");
 
-  while (g_running) {
-    std::this_thread::sleep_for(100ms);
+  // Monitor loop with connection health checks every 30 seconds
+  auto result = monitorLoop(*connection, 30s, 100ms);
+
+  if (result) {
+    spdlog::error("Exiting due to: {}", *result);
+  } else {
+    spdlog::info("Shutting down...");
   }
 
-  spdlog::info("Shutting down...");
   connection->leaveEventLoop();
-
-  return 0;
+  return result ? 1 : 0;
 }
