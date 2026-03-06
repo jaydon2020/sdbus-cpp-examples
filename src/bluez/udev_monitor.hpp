@@ -174,9 +174,23 @@ class UdevMonitor {
         if (events[n].data.fd == fd) {
           if (const auto dev = udev_monitor_receive_device(mon)) {
             if (callback_) {
-              callback_(udev_device_get_action(dev),
-                        udev_device_get_devnode(dev),
-                        udev_device_get_subsystem(dev));
+              // Get device properties - these can return NULL
+              const char* action = udev_device_get_action(dev);
+              const char* devnode = udev_device_get_devnode(dev);
+              const char* subsystem = udev_device_get_subsystem(dev);
+
+              // Only invoke callback if we have valid data
+              // Note: devnode can legitimately be NULL for some devices
+              if (action && subsystem) {
+                callback_(action, devnode, subsystem);
+              } else {
+                spdlog::debug(
+                    "Skipping callback for device with missing properties: "
+                    "action={}, devnode={}, subsystem={}",
+                    action ? action : "null",
+                    devnode ? devnode : "null",
+                    subsystem ? subsystem : "null");
+              }
             }
             udev_device_unref(dev);
           }
