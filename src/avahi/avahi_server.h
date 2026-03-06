@@ -19,6 +19,7 @@
 #include "../proxy/org/freedesktop/Avahi/Server2/server2_proxy.h"
 
 #include "../utils/utils.h"
+#include "../utils/logging.h"
 
 class AvahiServer final
     : public sdbus::ProxyInterfaces<org::freedesktop::Avahi::Server_proxy> {
@@ -38,7 +39,7 @@ class AvahiServer final
   std::int32_t state_{};
 
   void onStateChanged(const int32_t& state, const std::string& error) override {
-    spdlog::info("onStateChanged: state={}, error={}", state, error);
+    LOG_INFO("onStateChanged: state={}, error={}", state, error);
     state_ = state;
   }
 };

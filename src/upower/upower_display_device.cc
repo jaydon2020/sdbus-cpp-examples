@@ -14,9 +14,8 @@
 
 #include "upower_display_device.h"
 
-#include <chrono>
-
 #include "../utils/utils.h"
+#include "../utils/logging.h"
 
 UPowerDisplayDevice::UPowerDisplayDevice(sdbus::IConnection& connection,
                                          const sdbus::ObjectPath& objectPath)
@@ -30,7 +29,7 @@ UPowerDisplayDevice::UPowerDisplayDevice(sdbus::IConnection& connection,
     UPowerDisplayDevice::onPropertiesChanged(
         sdbus::InterfaceName("org.freedesktop.UPower.Device"), properties, {});
   } catch (const sdbus::Error& e) {
-    spdlog::error("UPowerDisplayDevice::UPowerDisplayDevice: {}", e.what());
+    LOG_ERROR("UPowerDisplayDevice::UPowerDisplayDevice: {}", e.what());
   }
 }
 

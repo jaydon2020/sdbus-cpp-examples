@@ -21,7 +21,6 @@
 #include <sdbus-c++/sdbus-c++.h>
 #include <glaze/glaze.hpp>
 
-#include <spdlog/spdlog.h>
 
 class Utils {
  public:

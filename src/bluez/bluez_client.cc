@@ -58,7 +58,7 @@ void BluezClient::onInterfacesAdded(
       if (!adapters_.contains(objectPath)) {
         if (resource_limits::IsAtCapacity(adapters_.size(),
                                           resource_limits::kMaxAdapters)) {
-          spdlog::warn(
+          LOG_WARN(
               "Skipping Adapter1 {}: resource limit reached ({}/{})",
               objectPath, adapters_.size(), resource_limits::kMaxAdapters);
           continue;
@@ -73,7 +73,7 @@ void BluezClient::onInterfacesAdded(
       if (!devices_.contains(objectPath)) {
         if (resource_limits::IsAtCapacity(devices_.size(),
                                           resource_limits::kMaxDevices)) {
-          spdlog::warn("Skipping Device1 {}: resource limit reached ({}/{})",
+          LOG_WARN("Skipping Device1 {}: resource limit reached ({}/{})",
                        objectPath, devices_.size(),
                        resource_limits::kMaxDevices);
           continue;
@@ -88,7 +88,7 @@ void BluezClient::onInterfacesAdded(
       if (!gatt_services_.contains(objectPath)) {
         if (resource_limits::IsAtCapacity(gatt_services_.size(),
                                           resource_limits::kMaxGattServices)) {
-          spdlog::warn(
+          LOG_WARN(
               "Skipping GattService1 {}: resource limit reached ({}/{})",
               objectPath, gatt_services_.size(),
               resource_limits::kMaxGattServices);
@@ -107,14 +107,14 @@ void BluezClient::onInterfacesAdded(
       // Safely get the Service property
       auto object_path = property_utils::getProperty<sdbus::ObjectPath>(properties, key);
       if (!object_path) {
-        spdlog::warn("GattCharacteristic1 at {} missing 'Service' property", objectPath);
+        LOG_WARN("GattCharacteristic1 at {} missing 'Service' property", objectPath);
         continue;  // Skip this characteristic
       }
 
       if (!gatt_characteristics_.contains(objectPath) &&
           resource_limits::IsAtCapacity(gatt_characteristics_.size(),
                                         resource_limits::kMaxGattCharacteristics)) {
-        spdlog::warn(
+        LOG_WARN(
             "Skipping GattCharacteristic1 {}: resource limit reached ({}/{})",
             objectPath, gatt_characteristics_.size(),
             resource_limits::kMaxGattCharacteristics);
@@ -131,14 +131,14 @@ void BluezClient::onInterfacesAdded(
       // Safely get the Characteristic property
       auto object_path = property_utils::getProperty<sdbus::ObjectPath>(properties, key);
       if (!object_path) {
-        spdlog::warn("GattDescriptor1 at {} missing 'Characteristic' property", objectPath);
+        LOG_WARN("GattDescriptor1 at {} missing 'Characteristic' property", objectPath);
         continue;  // Skip this descriptor
       }
 
       if (!gatt_descriptors_.contains(objectPath) &&
           resource_limits::IsAtCapacity(gatt_descriptors_.size(),
                                         resource_limits::kMaxGattDescriptors)) {
-        spdlog::warn("Skipping GattDescriptor1 {}: resource limit reached ({}/{})",
+        LOG_WARN("Skipping GattDescriptor1 {}: resource limit reached ({}/{})",
                      objectPath, gatt_descriptors_.size(),
                      resource_limits::kMaxGattDescriptors);
         continue;
@@ -157,7 +157,7 @@ void BluezClient::onInterfacesAdded(
       if (!battery1_.contains(objectPath)) {
         if (resource_limits::IsAtCapacity(battery1_.size(),
                                           resource_limits::kMaxBatteryEntries)) {
-          spdlog::warn("Skipping Battery1 {}: resource limit reached ({}/{})",
+          LOG_WARN("Skipping Battery1 {}: resource limit reached ({}/{})",
                        objectPath, battery1_.size(),
                        resource_limits::kMaxBatteryEntries);
           continue;
@@ -176,7 +176,7 @@ void BluezClient::onInterfacesAdded(
       if (!input1_.contains(objectPath)) {
         if (resource_limits::IsAtCapacity(input1_.size(),
                                           resource_limits::kMaxInputEntries)) {
-          spdlog::warn("Skipping Input1 {}: resource limit reached ({}/{})",
+          LOG_WARN("Skipping Input1 {}: resource limit reached ({}/{})",
                        objectPath, input1_.size(),
                        resource_limits::kMaxInputEntries);
           continue;
@@ -201,7 +201,7 @@ void BluezClient::onInterfacesAdded(
           objectPath);
     }
   }
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }
 
 void BluezClient::onInterfacesRemoved(
@@ -269,5 +269,5 @@ void BluezClient::onInterfacesRemoved(
       network_server1_.reset();
     }
   }
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }

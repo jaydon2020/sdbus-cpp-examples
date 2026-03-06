@@ -28,8 +28,8 @@
 #include <vector>
 
 #include "../proxy/org/freedesktop/UDisks2/Block/block_proxy.h"
+#include "../utils/logging.h"
 
-#include <spdlog/spdlog.h>
 
 // Forward declarations
 class RemovableDeviceMonitor;
@@ -134,7 +134,7 @@ class BlockDeviceWatcher
           driveProps =
               driveProxy->getAllProperties().onInterface(driveInterfaceName);
         } catch (const std::exception& e) {
-          spdlog::warn("Failed to get drive properties: {}", e.what());
+          LOG_WARN("Failed to get drive properties: {}", e.what());
         }
 
         // Report the device
@@ -144,7 +144,7 @@ class BlockDeviceWatcher
         }
       }
     } catch (const std::exception& e) {
-      spdlog::debug("Error checking device readiness: {}", e.what());
+      LOG_DEBUG("Error checking device readiness: {}", e.what());
     }
   }
 };
@@ -163,12 +163,12 @@ class RemovableDeviceMonitor final
     registerProxy();
 
     // Process existing objects
-    spdlog::info("Scanning for existing removable devices...");
+    LOG_INFO("Scanning for existing removable devices...");
     for (auto managedObjects = GetManagedObjects();
          const auto& [objectPath, interfacesAndProperties] : managedObjects) {
       onInterfacesAdded(objectPath, interfacesAndProperties);
     }
-    spdlog::info("Initial scan complete. Monitoring for new devices...");
+    LOG_INFO("Initial scan complete. Monitoring for new devices...");
   }
 
   ~RemovableDeviceMonitor() { unregisterProxy(); }
@@ -233,7 +233,7 @@ class RemovableDeviceMonitor final
       }
 
       if (isRemovable) {
-        spdlog::info("Detected removable device: {}", objectPath.c_str());
+        LOG_INFO("Detected removable device: {}", objectPath.c_str());
 
         // Create a watcher for this device
         std::lock_guard<std::mutex> lock(watchers_mutex_);
@@ -243,7 +243,7 @@ class RemovableDeviceMonitor final
         }
       }
     } catch (const std::exception& e) {
-      spdlog::debug("Error checking drive removability for {}: {}",
+      LOG_DEBUG("Error checking drive removability for {}: {}",
                     objectPath.c_str(), e.what());
     }
   }
@@ -257,7 +257,7 @@ class RemovableDeviceMonitor final
       if (interface == blockInterface) {
         std::lock_guard<std::mutex> lock(watchers_mutex_);
         if (auto it = watchers_.find(objectPath); it != watchers_.end()) {
-          spdlog::info("Removable device removed: {}", objectPath.c_str());
+          LOG_INFO("Removable device removed: {}", objectPath.c_str());
           watchers_.erase(it);
         }
       }
@@ -488,9 +488,9 @@ void printDeviceInformation(
 
 int main() {
   try {
-    spdlog::info("Starting UDisks2 Removable Device Monitor Daemon");
-    spdlog::info("This daemon monitors for removable device insertions");
-    spdlog::info("Press Ctrl+C to stop...\n");
+    LOG_INFO("Starting UDisks2 Removable Device Monitor Daemon");
+    LOG_INFO("This daemon monitors for removable device insertions");
+    LOG_INFO("Press Ctrl+C to stop...\n");
 
     // Create the system bus connection
     const auto connection = sdbus::createSystemBusConnection();
@@ -511,7 +511,7 @@ int main() {
       std::this_thread::sleep_for(kDaemonIdleSleepInterval);
     }
   } catch (const std::exception& e) {
-    spdlog::error("Fatal error: {}", e.what());
+    LOG_ERROR("Fatal error: {}", e.what());
     return 1;
   }
 

@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "wpa_supplicant1_client.h"
+#include "../utils/logging.h"
+
 
 WpaSupplicant1Client::WpaSupplicant1Client(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(SERVICE_NAME),
@@ -14,7 +16,7 @@ WpaSupplicant1Client::WpaSupplicant1Client(sdbus::IConnection& connection)
       [](std::optional<sdbus::Error> error,
          const std::map<sdbus::PropertyName, sdbus::Variant>& values) {
         if (error) {
-          spdlog::warn("wpa_supplicant1 GetAllAsync failed: {} - {}",
+          LOG_WARN("wpa_supplicant1 GetAllAsync failed: {} - {}",
                        error->getName(), error->getMessage());
         } else {
           Utils::print_changed_properties(
@@ -45,9 +47,9 @@ void WpaSupplicant1Client::onPropertiesChanged(
 void WpaSupplicant1Client::onInterfaceAdded(
     const sdbus::ObjectPath& path,
     const std::map<std::string, sdbus::Variant>& properties) {
-  spdlog::info("onInterfaceAdded");
+  LOG_INFO("onInterfaceAdded");
 }
 
 void WpaSupplicant1Client::onInterfaceRemoved(const sdbus::ObjectPath& path) {
-  spdlog::info("onInterfaceRemoved");
+  LOG_INFO("onInterfaceRemoved");
 }

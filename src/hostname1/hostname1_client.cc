@@ -17,6 +17,7 @@
 #include <iomanip>
 
 #include "../utils/utils.h"
+#include "../utils/logging.h"
 
 Hostname1Client::Hostname1Client(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(INTERFACE_NAME),
@@ -185,7 +186,7 @@ void Hostname1Client::printHostname1() const {
     }
     os << std::endl;
   }
-  spdlog::info("\n{}", os.str());
+  LOG_INFO("\n{}", os.str());
 }
 
 void Hostname1Client::printHostname1(const Hostname1& val) {
@@ -269,5 +270,5 @@ void Hostname1Client::printHostname1(const Hostname1& val) {
   if (val.BootID.has_value()) {
     os << "\tBootID: " << val.BootID.value() << std::endl;
   }
-  spdlog::info("\n{}", os.str());
+  LOG_INFO("\n{}", os.str());
 }

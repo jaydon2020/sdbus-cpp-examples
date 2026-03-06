@@ -15,6 +15,7 @@
 #include "locale1_client.h"
 
 #include "../utils/utils.h"
+#include "../utils/logging.h"
 
 Locale1Client::Locale1Client(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(INTERFACE_NAME),
@@ -84,5 +85,5 @@ void Locale1Client::printLocale1() const {
        << std::endl;
   }
 
-  spdlog::info("\n{}", os.str());
+  LOG_INFO("\n{}", os.str());
 }

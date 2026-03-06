@@ -17,6 +17,7 @@
 
 #include "../proxy/org/freedesktop/login1/Seat/seat_proxy.h"
 #include "../utils/utils.h"
+#include "../utils/logging.h"
 
 class Login1Seat final
     : public sdbus::ProxyInterfaces<sdbus::Properties_proxy,
@@ -38,7 +39,7 @@ class Login1Seat final
               onPropertiesChanged(
                   sdbus::InterfaceName(Seat_proxy::INTERFACE_NAME), values, {});
             } else
-              spdlog::error("login1.Seat: {} - {}", error->getName(),
+              LOG_ERROR("login1.Seat: {} - {}", error->getName(),
                             error->getMessage());
           });
     }
@@ -56,9 +57,9 @@ class Login1Seat final
       os << "========================================" << std::endl;
       Utils::append_properties(props, os);
       os << "========================================" << std::endl;
-      spdlog::info(os.str());
+      LOG_INFO(os.str());
     } catch (const sdbus::Error& e) {
-      spdlog::error("Failed to get seat properties for {}: {} - {}",
+      LOG_ERROR("Failed to get seat properties for {}: {} - {}",
                     object_path_, e.getName(), e.getMessage());
     }
   }

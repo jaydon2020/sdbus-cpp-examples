@@ -19,7 +19,7 @@
 #include <map>
 #include <string>
 #include <sdbus-c++/sdbus-c++.h>
-#include <spdlog/spdlog.h>
+#include "../utils/logging.h"
 
 namespace property_utils {
 
@@ -39,7 +39,7 @@ std::optional<T> getProperty(
   // Check if a property exists
   const auto it = properties.find(key);
   if (it == properties.end()) {
-    spdlog::debug("Property '{}' not found", key);
+    LOG_DEBUG("Property '{}' not found", key);
     return std::nullopt;
   }
 
@@ -47,11 +47,11 @@ std::optional<T> getProperty(
   try {
     return it->second.get<T>();
   } catch (const sdbus::Error& e) {
-    spdlog::error("D-Bus error getting property '{}': {} - {}",
+    LOG_ERROR("D-Bus error getting property '{}': {} - {}",
                   key, e.getName(), e.getMessage());
     return std::nullopt;
   } catch (const std::exception& e) {
-    spdlog::error("Exception getting property '{}': {}", key, e.what());
+    LOG_ERROR("Exception getting property '{}': {}", key, e.what());
     return std::nullopt;
   }
 }

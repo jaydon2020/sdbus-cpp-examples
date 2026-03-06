@@ -15,6 +15,7 @@
 #include "networkmanager_client.h"
 
 #include "../utils/utils.h"
+#include "../utils/logging.h"
 
 NetworkManagerClient::NetworkManagerClient(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(INTERFACE_NAME),
@@ -40,7 +41,7 @@ void NetworkManagerClient::onInterfacesAdded(
     os << "[" << objectPath << "] Add - " << interface << std::endl;
     Utils::append_properties(properties, os);
   }
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }
 
 void NetworkManagerClient::onInterfacesRemoved(
@@ -54,7 +55,7 @@ void NetworkManagerClient::onInterfacesRemoved(
       os << std::endl;
     }
   }
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }
 
 void NetworkManagerClient::onPropertiesChanged(
@@ -63,22 +64,22 @@ void NetworkManagerClient::onPropertiesChanged(
   os << std::endl;
   os << "NetworkManagerClient Properties changed" << std::endl;
   Utils::append_properties(properties, os);
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }
 
 void NetworkManagerClient::onCheckPermissions() {
-  spdlog::info("NetworkManagerClient::onCheckPermissions()");
+  LOG_INFO("NetworkManagerClient::onCheckPermissions()");
 }
 
 void NetworkManagerClient::onStateChanged(const uint32_t& state) {
-  spdlog::info("NetworkManagerClient::onStateChanged: {}", state);
+  LOG_INFO("NetworkManagerClient::onStateChanged: {}", state);
 }
 
 void NetworkManagerClient::onDeviceAdded(const sdbus::ObjectPath& device_path) {
-  spdlog::info("NetworkManagerClient::onDeviceAdded: {}", device_path);
+  LOG_INFO("NetworkManagerClient::onDeviceAdded: {}", device_path);
 }
 
 void NetworkManagerClient::onDeviceRemoved(
     const sdbus::ObjectPath& device_path) {
-  spdlog::info("NetworkManagerClient::onDeviceRemoved: {}", device_path);
+  LOG_INFO("NetworkManagerClient::onDeviceRemoved: {}", device_path);
 }

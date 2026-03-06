@@ -40,7 +40,7 @@ HoripadSteam::HoripadSteam(sdbus::IConnection& connection)
                   [&](const char* action,
                       const char* dev_node,
                       const char* sub_system) {
-                    spdlog::debug("Action: {}, Device: {}, Subsystem: {}",
+                    LOG_DEBUG("Action: {}, Device: {}, Subsystem: {}",
                                   action ? action : "",
                                   dev_node ? dev_node : "",
                                   sub_system ? sub_system : "");
@@ -84,7 +84,7 @@ void HoripadSteam::onInterfacesAdded(
       if (!adapters_.contains(objectPath)) {
         if (resource_limits::IsAtCapacity(adapters_.size(),
                                           resource_limits::kMaxAdapters)) {
-          spdlog::warn(
+          LOG_WARN(
               "Skipping Adapter1 {}: resource limit reached ({}/{})",
               objectPath, adapters_.size(), resource_limits::kMaxAdapters);
           continue;
@@ -105,16 +105,16 @@ void HoripadSteam::onInterfacesAdded(
 
       if (auto mod_alias = Device1::parse_modalias(*mod_alias_str);
           mod_alias.has_value()) {
-        spdlog::debug("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
+        LOG_DEBUG("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
                       mod_alias.value().pid, mod_alias.value().did);
         if (auto [vid, pid, did] = mod_alias.value();
             vid != VENDOR_ID || pid != PRODUCT_ID) {
           continue;
         }
-        spdlog::debug("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
+        LOG_DEBUG("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
                       mod_alias.value().pid, mod_alias.value().did);
       } else {
-        spdlog::debug("modalias has no value assigned: {}", objectPath);
+        LOG_DEBUG("modalias has no value assigned: {}", objectPath);
         continue;
       }
 
@@ -127,7 +127,7 @@ void HoripadSteam::onInterfacesAdded(
 
         if (resource_limits::IsAtCapacity(devices_.size(),
                                           resource_limits::kMaxDevices)) {
-          spdlog::warn("Skipping Device1 {}: resource limit reached ({}/{})",
+          LOG_WARN("Skipping Device1 {}: resource limit reached ({}/{})",
                        objectPath, devices_.size(),
                        resource_limits::kMaxDevices);
           continue;
@@ -139,7 +139,7 @@ void HoripadSteam::onInterfacesAdded(
 
         if (auto props = device->GetProperties(); props.modalias.has_value()) {
           auto [vid, pid, did] = props.modalias.value();
-          spdlog::info("Adding: {}, {}, {}", vid, pid, did);
+          LOG_INFO("Adding: {}, {}, {}", vid, pid, did);
           if (vid == VENDOR_ID && pid == PRODUCT_ID) {
             if (props.connected && props.paired && props.trusted) {
               hidraw_device_key =
@@ -160,7 +160,7 @@ void HoripadSteam::onInterfacesAdded(
         HidDevicesUnlock();
 
         if (!hidraw_device.empty()) {
-          spdlog::info("Adding hidraw device: {}", hidraw_device_key);
+          LOG_INFO("Adding hidraw device: {}", hidraw_device_key);
           if (!input_reader_) {
             input_reader_ = std::make_unique<InputReader>(hidraw_device);
             input_reader_->start();
@@ -172,7 +172,7 @@ void HoripadSteam::onInterfacesAdded(
       if (!input1_.contains(objectPath)) {
         if (resource_limits::IsAtCapacity(input1_.size(),
                                           resource_limits::kMaxInputEntries)) {
-          spdlog::warn("Skipping Input1 {}: resource limit reached ({}/{})",
+          LOG_WARN("Skipping Input1 {}: resource limit reached ({}/{})",
                        objectPath, input1_.size(),
                        resource_limits::kMaxInputEntries);
           continue;

@@ -15,6 +15,8 @@
 #include "fwupd_client.h"
 
 #include "../utils/utils.h"
+#include "../utils/logging.h"
+
 
 FwupdClient::FwupdClient(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(INTERFACE_NAME),
@@ -35,7 +37,7 @@ void FwupdClient::onPropertiesChanged(
 }
 
 void FwupdClient::onChanged() {
-  spdlog::info("onChanged");
+  LOG_INFO("onChanged");
 }
 
 void FwupdClient::onDeviceAdded(
@@ -43,7 +45,7 @@ void FwupdClient::onDeviceAdded(
   std::ostringstream os;
   os << std::endl << "[FwupdClient] onDeviceAdded" << std::endl;
   Utils::append_properties(device, os);
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }
 
 void FwupdClient::onDeviceRemoved(
@@ -51,7 +53,7 @@ void FwupdClient::onDeviceRemoved(
   std::ostringstream os;
   os << std::endl << "[FwupdClient] onDeviceRemoved" << std::endl;
   Utils::append_properties(device, os);
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }
 
 void FwupdClient::onDeviceChanged(
@@ -59,7 +61,7 @@ void FwupdClient::onDeviceChanged(
   std::ostringstream os;
   os << std::endl << "[FwupdClient] onDeviceChanged" << std::endl;
   Utils::append_properties(device, os);
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }
 
 void FwupdClient::onDeviceRequest(
@@ -67,5 +69,5 @@ void FwupdClient::onDeviceRequest(
   std::ostringstream os;
   os << std::endl << "[FwupdClient] onDeviceRequest" << std::endl;
   Utils::append_properties(request, os);
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }

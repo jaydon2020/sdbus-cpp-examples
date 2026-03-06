@@ -40,7 +40,7 @@ XboxController::XboxController(sdbus::IConnection& connection)
                   [&](const char* action,
                       const char* dev_node,
                       const char* sub_system) {
-                    spdlog::debug("Action: {}, Device: {}, Subsystem: {}",
+                    LOG_DEBUG("Action: {}, Device: {}, Subsystem: {}",
                                   action ? action : "",
                                   dev_node ? dev_node : "",
                                   sub_system ? sub_system : "");
@@ -83,7 +83,7 @@ void XboxController::onInterfacesAdded(
       if (!adapters_.contains(objectPath)) {
         if (resource_limits::IsAtCapacity(adapters_.size(),
                                           resource_limits::kMaxAdapters)) {
-          spdlog::warn(
+          LOG_WARN(
               "Skipping Adapter1 {}: resource limit reached ({}/{})",
               objectPath, adapters_.size(), resource_limits::kMaxAdapters);
           continue;
@@ -108,10 +108,10 @@ void XboxController::onInterfacesAdded(
             vid != VENDOR_ID || (pid != PRODUCT_ID0 && pid != PRODUCT_ID1)) {
           continue;
         }
-        spdlog::debug("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
+        LOG_DEBUG("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
                       mod_alias.value().pid, mod_alias.value().did);
       } else {
-        spdlog::debug("modalias has no value assigned: {}", objectPath);
+        LOG_DEBUG("modalias has no value assigned: {}", objectPath);
         continue;
       }
 
@@ -125,7 +125,7 @@ void XboxController::onInterfacesAdded(
 
         if (resource_limits::IsAtCapacity(devices_.size(),
                                           resource_limits::kMaxDevices)) {
-          spdlog::warn("Skipping Device1 {}: resource limit reached ({}/{})",
+          LOG_WARN("Skipping Device1 {}: resource limit reached ({}/{})",
                        objectPath, devices_.size(),
                        resource_limits::kMaxDevices);
           continue;
@@ -137,7 +137,7 @@ void XboxController::onInterfacesAdded(
 
         if (auto props = device->GetProperties(); props.modalias.has_value()) {
           auto [vid, pid, did] = props.modalias.value();
-          spdlog::info("Adding: {}, {}, {}", vid, pid, did);
+          LOG_INFO("Adding: {}, {}, {}", vid, pid, did);
           if ((vid == VENDOR_ID && pid == PRODUCT_ID0) ||
               (vid == VENDOR_ID && pid == PRODUCT_ID1)) {
             if (props.connected && props.paired && props.trusted) {
@@ -161,7 +161,7 @@ void XboxController::onInterfacesAdded(
         HidDevicesUnlock();
 
         if (!hidraw_device.empty()) {
-          spdlog::info("Adding hidraw device: {}", hidraw_device_key);
+          LOG_INFO("Adding hidraw device: {}", hidraw_device_key);
           if (!input_reader_) {
             input_reader_ = std::make_unique<InputReader>(hidraw_device);
             input_reader_->start();
@@ -175,13 +175,13 @@ void XboxController::onInterfacesAdded(
         if (!upower_clients_.contains(power_path_to_add)) {
           if (resource_limits::IsAtCapacity(upower_clients_.size(),
                                             resource_limits::kMaxUPowerClients)) {
-            spdlog::warn(
+            LOG_WARN(
                 "Skipping UPower client {}: resource limit reached ({}/{})",
                 power_path_to_add, upower_clients_.size(),
                 resource_limits::kMaxUPowerClients);
             continue;
           }
-          spdlog::info("[Add] UPower Display Device: {}", power_path_to_add);
+          LOG_INFO("[Add] UPower Display Device: {}", power_path_to_add);
           upower_clients_[power_path_to_add] = std::make_unique<UPowerClient>(
               getProxy().getConnection(),
               sdbus::ObjectPath(power_path_to_add));
@@ -192,7 +192,7 @@ void XboxController::onInterfacesAdded(
       if (!input1_.contains(objectPath)) {
         if (resource_limits::IsAtCapacity(input1_.size(),
                                           resource_limits::kMaxInputEntries)) {
-          spdlog::warn("Skipping Input1 {}: resource limit reached ({}/{})",
+          LOG_WARN("Skipping Input1 {}: resource limit reached ({}/{})",
                        objectPath, input1_.size(),
                        resource_limits::kMaxInputEntries);
           continue;
@@ -224,7 +224,7 @@ void XboxController::onInterfacesRemoved(
           auto& device = devices_[objectPath];
           if (auto props = device->GetProperties(); props.modalias.has_value()) {
             auto [vid, pid, did] = props.modalias.value();
-            spdlog::info("Removing: {}, {}, {}", vid, pid, did);
+            LOG_INFO("Removing: {}, {}, {}", vid, pid, did);
             if ((vid == VENDOR_ID && pid == PRODUCT_ID0) ||
                 (vid == VENDOR_ID && pid == PRODUCT_ID1)) {
               power_path_to_remove = convert_mac_to_upower_path(props.address);
@@ -239,7 +239,7 @@ void XboxController::onInterfacesRemoved(
       if (!power_path_to_remove.empty()) {
         std::scoped_lock power_lock(upower_display_devices_mutex_);
         if (upower_clients_.contains(power_path_to_remove)) {
-          spdlog::info("[Remove] UPower Display Device: {}", power_path_to_remove);
+          LOG_INFO("[Remove] UPower Display Device: {}", power_path_to_remove);
           auto& power_device = upower_clients_[power_path_to_remove];
           power_device.reset();
           upower_clients_.erase(power_path_to_remove);

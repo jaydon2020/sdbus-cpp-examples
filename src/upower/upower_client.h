@@ -19,6 +19,7 @@
 
 #include "../proxy/org/freedesktop/UPower/upower_proxy.h"
 #include "../utils/utils.h"
+#include "../utils/logging.h"
 #include "upower_display_device.h"
 
 class UPowerDisplayDevice;
@@ -59,7 +60,7 @@ class UPowerClient final
   void onDeviceAdded(const sdbus::ObjectPath& device) override {
     if (device_filter_.empty() ||
         !device_filter_.empty() && device_filter_ == device) {
-      spdlog::info("onDeviceAdded: {}", device);
+      LOG_INFO("onDeviceAdded: {}", device);
       std::lock_guard lock(devices_mutex_);
       if (!devices_.contains(device)) {
         devices_[device] = std::make_shared<UPowerDisplayDevice>(
@@ -71,7 +72,7 @@ class UPowerClient final
   void onDeviceRemoved(const sdbus::ObjectPath& device) override {
     if (device_filter_.empty() ||
         !device_filter_.empty() && device_filter_ == device) {
-      spdlog::info("onDeviceRemoved: {}", device);
+      LOG_INFO("onDeviceRemoved: {}", device);
       std::lock_guard lock(devices_mutex_);
       if (devices_.contains(device)) {
         devices_[device].reset();
@@ -84,7 +85,7 @@ class UPowerClient final
       const sdbus::InterfaceName& interfaceName,
       const std::map<sdbus::PropertyName, sdbus::Variant>& changedProperties,
       const std::vector<sdbus::PropertyName>& invalidatedProperties) override {
-    spdlog::info("onPropertiesChanged: {}", interfaceName);
+    LOG_INFO("onPropertiesChanged: {}", interfaceName);
     Utils::print_changed_properties(interfaceName, changedProperties,
                                     invalidatedProperties);
   }

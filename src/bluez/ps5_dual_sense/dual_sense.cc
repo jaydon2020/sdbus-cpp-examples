@@ -14,7 +14,6 @@
 
 #include "dual_sense.h"
 
-#include <spdlog/spdlog.h>
 
 #include "../../utils/property_utils.h"
 #include "../../utils/resource_limits.h"
@@ -39,7 +38,7 @@ DualSense::DualSense(sdbus::IConnection& connection)
                   [&](const char* action,
                       const char* dev_node,
                       const char* sub_system) {
-                    spdlog::debug("Action: {}, Device: {}, Subsystem: {}",
+                    LOG_DEBUG("Action: {}, Device: {}, Subsystem: {}",
                                   action ? action : "",
                                   dev_node ? dev_node : "",
                                   sub_system ? sub_system : "");
@@ -83,7 +82,7 @@ void DualSense::onInterfacesAdded(
       if (!adapters_.contains(objectPath)) {
         if (resource_limits::IsAtCapacity(adapters_.size(),
                                           resource_limits::kMaxAdapters)) {
-          spdlog::warn(
+          LOG_WARN(
               "Skipping Adapter1 {}: resource limit reached ({}/{})",
               objectPath, adapters_.size(), resource_limits::kMaxAdapters);
           continue;
@@ -104,14 +103,14 @@ void DualSense::onInterfacesAdded(
 
       if (auto mod_alias = Device1::parse_modalias(*mod_alias_str);
           mod_alias.has_value()) {
-        spdlog::debug("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
+        LOG_DEBUG("VID: {}, PID: {}, DID: {}", mod_alias.value().vid,
                       mod_alias.value().pid, mod_alias.value().did);
         if (auto [vid, pid, did] = mod_alias.value();
             vid != VENDOR_ID || pid != PRODUCT_ID) {
           continue;
         }
       } else {
-        spdlog::debug("modalias has no value assigned: {}", objectPath);
+        LOG_DEBUG("modalias has no value assigned: {}", objectPath);
         continue;
       }
 
@@ -125,7 +124,7 @@ void DualSense::onInterfacesAdded(
 
         if (resource_limits::IsAtCapacity(devices_.size(),
                                           resource_limits::kMaxDevices)) {
-          spdlog::warn("Skipping Device1 {}: resource limit reached ({}/{})",
+          LOG_WARN("Skipping Device1 {}: resource limit reached ({}/{})",
                        objectPath, devices_.size(),
                        resource_limits::kMaxDevices);
           continue;
@@ -137,7 +136,7 @@ void DualSense::onInterfacesAdded(
 
         if (auto props = device->GetProperties(); props.modalias.has_value()) {
           auto [vid, pid, did] = props.modalias.value();
-          spdlog::info("Adding: {}, {}, {}", vid, pid, did);
+          LOG_INFO("Adding: {}, {}, {}", vid, pid, did);
           if (vid == VENDOR_ID && pid == PRODUCT_ID) {
             // if connected, paired, trusted, and bonded, a hidraw device should
             // be ready to use
@@ -162,7 +161,7 @@ void DualSense::onInterfacesAdded(
         HidDevicesUnlock();
 
         if (!hidraw_device.empty()) {
-          spdlog::info("Adding hidraw device: {}", hidraw_device_key);
+          LOG_INFO("Adding hidraw device: {}", hidraw_device_key);
           if (!input_reader_) {
             input_reader_ = std::make_unique<InputReader>(hidraw_device);
             input_reader_->start();
@@ -176,13 +175,13 @@ void DualSense::onInterfacesAdded(
         if (!upower_clients_.contains(power_path_to_add)) {
           if (resource_limits::IsAtCapacity(upower_clients_.size(),
                                             resource_limits::kMaxUPowerClients)) {
-            spdlog::warn(
+            LOG_WARN(
                 "Skipping UPower client {}: resource limit reached ({}/{})",
                 power_path_to_add, upower_clients_.size(),
                 resource_limits::kMaxUPowerClients);
             continue;
           }
-          spdlog::info("[Add] UPower Display Device: {}", power_path_to_add);
+          LOG_INFO("[Add] UPower Display Device: {}", power_path_to_add);
           upower_clients_[power_path_to_add] = std::make_unique<UPowerClient>(
               getProxy().getConnection(),
               sdbus::ObjectPath(power_path_to_add));
@@ -193,7 +192,7 @@ void DualSense::onInterfacesAdded(
       if (!input1_.contains(objectPath)) {
         if (resource_limits::IsAtCapacity(input1_.size(),
                                           resource_limits::kMaxInputEntries)) {
-          spdlog::warn("Skipping Input1 {}: resource limit reached ({}/{})",
+          LOG_WARN("Skipping Input1 {}: resource limit reached ({}/{})",
                        objectPath, input1_.size(),
                        resource_limits::kMaxInputEntries);
           continue;
@@ -225,7 +224,7 @@ void DualSense::onInterfacesRemoved(
           auto& device = devices_[objectPath];
           if (auto props = device->GetProperties(); props.modalias.has_value()) {
             auto [vid, pid, did] = props.modalias.value();
-            spdlog::info("Removing: {}, {}, {}", vid, pid, did);
+            LOG_INFO("Removing: {}, {}, {}", vid, pid, did);
             if (vid == VENDOR_ID && pid == PRODUCT_ID) {
               power_path_to_remove = convert_mac_to_path(props.address);
             }
@@ -238,7 +237,7 @@ void DualSense::onInterfacesRemoved(
       if (!power_path_to_remove.empty()) {
         std::scoped_lock power_lock(upower_display_devices_mutex_);
         if (upower_clients_.contains(power_path_to_remove)) {
-          spdlog::info("[Remove] UPower Display Device: {}", power_path_to_remove);
+          LOG_INFO("[Remove] UPower Display Device: {}", power_path_to_remove);
           auto& power_device = upower_clients_[power_path_to_remove];
           power_device.reset();
           upower_clients_.erase(power_path_to_remove);

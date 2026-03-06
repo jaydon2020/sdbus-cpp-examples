@@ -15,24 +15,25 @@
 #include "timesync1_manager_client.h"
 
 #include <sdbus-c++/sdbus-c++.h>
-#include <spdlog/spdlog.h>
+#include "../utils/logging.h"
+
 
 extern void exerciseTimesync(Timesync1ManagerClient&);
 
 int main() {
   try {
-    auto connection = sdbus::createSystemBusConnection();
-    auto proxy = sdbus::createProxy(
+    const auto connection = sdbus::createSystemBusConnection();
+    const auto proxy = sdbus::createProxy(
         *connection, sdbus::ServiceName("org.freedesktop.timesync1"),
         sdbus::ObjectPath("/org/freedesktop/timesync1/Manager"));
     Timesync1ManagerClient client(*proxy);
     exerciseTimesync(client);
-    spdlog::info("timesync1 Manager example complete");
+    LOG_INFO("timesync1 Manager example complete");
   } catch (const sdbus::Error& e) {
-    spdlog::error("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
     return 1;
   } catch (const std::exception& e) {
-    spdlog::error("Exception: {}", e.what());
+    LOG_ERROR("Exception: {}", e.what());
     return 1;
   }
   return 0;

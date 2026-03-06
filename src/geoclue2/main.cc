@@ -28,13 +28,13 @@ int main() {
         *connection, [&](const GeoClue2Location& location) {
           const auto [Accuracy, Altitude, Description, Heading, Latitude,
                       Longitude, Speed, Timestamp] = location.Properties();
-          spdlog::info("Timestamp: {}.{}", Timestamp.tv_sec, Timestamp.tv_nsec);
-          spdlog::info("Lat/Long: {}, {}", Latitude, Longitude);
-          spdlog::info("Heading: {}", Heading);
-          spdlog::info("Speed: {}", Speed);
-          spdlog::info("Accuracy: {}", Accuracy);
-          spdlog::info("Altitude: {}", Altitude);
-          spdlog::info("Description: {}", Description);
+          LOG_INFO("Timestamp: {}.{}", Timestamp.tv_sec, Timestamp.tv_nsec);
+          LOG_INFO("Lat/Long: {}, {}", Latitude, Longitude);
+          LOG_INFO("Heading: {}", Heading);
+          LOG_INFO("Speed: {}", Speed);
+          LOG_INFO("Accuracy: {}", Accuracy);
+          LOG_INFO("Altitude: {}", Altitude);
+          LOG_INFO("Description: {}", Description);
         });
 
     const auto& client = manager.Client();
@@ -43,24 +43,24 @@ int main() {
     client->DesktopId("org.example.geoclue2");
     client->Start();
 
-    spdlog::info("Geoclue2 monitor daemon running - Press Ctrl+C to exit");
+    LOG_INFO("Geoclue2 monitor daemon running - Press Ctrl+C to exit");
 
     auto result = monitorLoop(*connection);
 
     if (result) {
-      spdlog::error("Exiting due to: {}", *result);
+      LOG_ERROR("Exiting due to: {}", *result);
     } else {
-      spdlog::info("Shutting down...");
+      LOG_INFO("Shutting down...");
     }
 
     connection->leaveEventLoop();
     return result ? 1 : 0;
 
   } catch (const sdbus::Error& e) {
-    spdlog::error("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
     return 1;
   } catch (const std::exception& e) {
-    spdlog::error("Exception: {}", e.what());
+    LOG_ERROR("Exception: {}", e.what());
     return 1;
   }
 }

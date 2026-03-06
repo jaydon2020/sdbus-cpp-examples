@@ -2,6 +2,8 @@
 #include "packagekit_client.h"
 
 #include "../utils/utils.h"
+#include "../utils/logging.h"
+
 
 PackageKitClient::PackageKitClient(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(INTERFACE_NAME),
@@ -23,19 +25,19 @@ void PackageKitClient::onTransactionListChanged(
   for (const auto& transaction : transactions) {
     os << transaction << std::endl;
   }
-  spdlog::info(os.str());
+  LOG_INFO(os.str());
 }
 
 void PackageKitClient::onRestartSchedule() {
-  spdlog::info("onRestartSchedule");
+  LOG_INFO("onRestartSchedule");
 }
 
 void PackageKitClient::onRepoListChanged() {
-  spdlog::info("onRepoListChanged");
+  LOG_INFO("onRepoListChanged");
 }
 
 void PackageKitClient::onUpdatesChanged() {
-  spdlog::info("onUpdatesChanged");
+  LOG_INFO("onUpdatesChanged");
 }
 
 void PackageKitClient::onPropertiesChanged(

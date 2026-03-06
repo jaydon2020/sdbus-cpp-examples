@@ -15,6 +15,7 @@
 #include "timedate1_client.h"
 
 #include "../utils/utils.h"
+#include "../utils/logging.h"
 
 int main() {
   const auto connection = sdbus::createSystemBusConnection();
@@ -45,7 +46,7 @@ int main() {
       client.updateTimedate1(properties);
       client.printTimedate1();
     } catch (const std::exception& e) {
-      spdlog::error("Error: {}", e.what());
+      LOG_ERROR("Error: {}", e.what());
     }
   }
 

@@ -14,7 +14,7 @@
 
 #include "bluez_client.h"
 #include "../utils/signal_handler.h"
-#include "../utils/logging_config.h"
+
 
 int main() {
   try {
@@ -28,17 +28,17 @@ int main() {
 
     BluezClient client(*connection);
 
-    spdlog::info("BlueZ client running - Press Ctrl+C to exit");
+    LOG_INFO("BlueZ client running - Press Ctrl+C to exit");
 
     // Monitor loop with shared connection health timing defaults
     auto result = monitorLoop(*connection);
 
     if (result) {
       // Connection was lost
-      spdlog::error("Exiting due to: {}", *result);
+      LOG_ERROR("Exiting due to: {}", *result);
     } else {
       // Graceful shutdown via signal
-      spdlog::info("Shutting down...");
+      LOG_INFO("Shutting down...");
     }
 
     connection->leaveEventLoop();
@@ -46,10 +46,10 @@ int main() {
     return result ? 1 : 0;
 
   } catch (const sdbus::Error& e) {
-    spdlog::error("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
     return 1;
   } catch (const std::exception& e) {
-    spdlog::error("Exception: {}", e.what());
+    LOG_ERROR("Exception: {}", e.what());
     return 1;
   }
 }

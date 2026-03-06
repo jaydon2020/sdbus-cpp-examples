@@ -18,13 +18,12 @@
 #include "../proxy/org/freedesktop/RealtimeKit1/realtime_kit1_proxy.h"
 
 #include <sdbus-c++/sdbus-c++.h>
-#include <spdlog/spdlog.h>
 
-#include <sys/syscall.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <cstdint>
-#include <string>
+
+#include "../utils/logging.h"
+
 
 class RealtimeKit1ManagerClient : public org::freedesktop::RealtimeKit1_proxy {
  public:
@@ -32,21 +31,21 @@ class RealtimeKit1ManagerClient : public org::freedesktop::RealtimeKit1_proxy {
       : org::freedesktop::RealtimeKit1_proxy(proxy) {}
 
   void dumpProperties() {
-    spdlog::info("RTTimeUSecMax       : {}", RTTimeUSecMax());
-    spdlog::info("MaxRealtimePriority : {}", MaxRealtimePriority());
-    spdlog::info("MinNiceLevel        : {}", MinNiceLevel());
+    LOG_INFO("RTTimeUSecMax       : {}", RTTimeUSecMax());
+    LOG_INFO("MaxRealtimePriority : {}", MaxRealtimePriority());
+    LOG_INFO("MinNiceLevel        : {}", MinNiceLevel());
   }
 
   bool tryHighPriority(int32_t niceLevel) {
     try {
       auto tid = currentTid();
-      spdlog::info("MakeThreadHighPriority thread={} priority={}", tid,
+      LOG_INFO("MakeThreadHighPriority thread={} priority={}", tid,
                    niceLevel);
       MakeThreadHighPriority(tid, niceLevel);
-      spdlog::info("High priority change succeeded");
+      LOG_INFO("High priority change succeeded");
       return true;
     } catch (const sdbus::Error& e) {
-      spdlog::warn("High priority change failed: {} ({})", e.getName(),
+      LOG_WARN("High priority change failed: {} ({})", e.getName(),
                    e.getMessage());
       return false;
     }
@@ -55,13 +54,13 @@ class RealtimeKit1ManagerClient : public org::freedesktop::RealtimeKit1_proxy {
   bool tryRealtime(uint32_t rtPriority) {
     try {
       auto tid = currentTid();
-      spdlog::info("MakeThreadRealtime thread={} rtPriority={}", tid,
+      LOG_INFO("MakeThreadRealtime thread={} rtPriority={}", tid,
                    rtPriority);
       MakeThreadRealtime(tid, rtPriority);
-      spdlog::info("Realtime change succeeded");
+      LOG_INFO("Realtime change succeeded");
       return true;
     } catch (const sdbus::Error& e) {
-      spdlog::warn("Realtime change failed: {} ({})", e.getName(),
+      LOG_WARN("Realtime change failed: {} ({})", e.getName(),
                    e.getMessage());
       return false;
     }

@@ -17,6 +17,8 @@
 #include <iomanip>
 
 #include "../utils/utils.h"
+#include "../utils/logging.h"
+
 
 Timedate1Client::Timedate1Client(sdbus::IConnection& connection)
     : ProxyInterfaces{connection, sdbus::ServiceName(INTERFACE_NAME),
@@ -82,5 +84,5 @@ void Timedate1Client::printTimedate1() const {
   os << "\tRTCTimeUSec: " << timedate1_.RTCTimeUSec << std::endl;
   appendTimeUSecAsDate(timedate1_.RTCTimeUSec, os);
 
-  spdlog::info("\n{}", os.str());
+  LOG_INFO("\n{}", os.str());
 }

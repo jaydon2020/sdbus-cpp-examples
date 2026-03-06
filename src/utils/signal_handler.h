@@ -22,7 +22,7 @@
 #include <optional>
 
 #include <sdbus-c++/sdbus-c++.h>
-#include <spdlog/spdlog.h>
+#include "logging.h"
 
 /**
  * @brief Global flag to control application lifecycle
@@ -55,7 +55,7 @@ inline void signalHandler(int signum) {
       break;
   }
 
-  spdlog::info("Received signal {} - initiating graceful shutdown", signame);
+  LOG_INFO("Received signal {} - initiating graceful shutdown", signame);
   g_running = false;
 }
 
@@ -90,10 +90,10 @@ inline bool isConnectionAlive(sdbus::IConnection& connection) {
 
     return true;
   } catch (const sdbus::Error& e) {
-    spdlog::warn("D-Bus connection check failed: {}", e.what());
+    LOG_WARN("D-Bus connection check failed: {}", e.what());
     return false;
   } catch (const std::exception& e) {
-    spdlog::warn("Connection check exception: {}", e.what());
+    LOG_WARN("Connection check exception: {}", e.what());
     return false;
   }
 }
