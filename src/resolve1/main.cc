@@ -13,15 +13,24 @@
 // limitations under the License.
 
 #include "resolve1_manager.h"
+#include "../utils/signal_handler.h"
 
 int main() {
+  installSignalHandlers();
+
   const auto connection = sdbus::createSystemBusConnection();
   connection->enterEventLoopAsync();
 
-  Resolve1Manager client(*connection);
+  Resolve1Manager manager(*connection);
 
   using namespace std::chrono_literals;
-  std::this_thread::sleep_for(120000ms);
+  spdlog::info("Resolve1 manager running - Press Ctrl+C to exit");
+
+  while (g_running) {
+    std::this_thread::sleep_for(100ms);
+  }
+
+  spdlog::info("Shutting down...");
   connection->leaveEventLoop();
 
   return 0;

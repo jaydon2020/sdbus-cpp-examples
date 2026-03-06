@@ -14,8 +14,11 @@
 
 #include <spdlog/spdlog.h>
 #include "dual_sense.h"
+#include "../../utils/signal_handler.h"
 
 int main() {
+  installSignalHandlers();
+
   spdlog::set_level(spdlog::level::debug);
   spdlog::flush_every(std::chrono::seconds(5));
 
@@ -25,7 +28,13 @@ int main() {
   DualSense client(*connection);
 
   using namespace std::chrono_literals;
-  std::this_thread::sleep_for(120000ms);
+  spdlog::info("PS5 DualSense client running - Press Ctrl+C to exit");
+
+  while (g_running) {
+    std::this_thread::sleep_for(100ms);
+  }
+
+  spdlog::info("Shutting down...");
   connection->leaveEventLoop();
 
   return 0;

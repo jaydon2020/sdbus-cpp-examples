@@ -13,15 +13,24 @@
 // limitations under the License.
 
 #include "networkmanager_client.h"
+#include "../utils/signal_handler.h"
 
 int main() {
+  installSignalHandlers();
+
   const auto connection = sdbus::createSystemBusConnection();
   connection->enterEventLoopAsync();
 
   NetworkManagerClient client(*connection);
 
   using namespace std::chrono_literals;
-  std::this_thread::sleep_for(120000ms);
+  spdlog::info("NetworkManager client running - Press Ctrl+C to exit");
+
+  while (g_running) {
+    std::this_thread::sleep_for(100ms);
+  }
+
+  spdlog::info("Shutting down...");
   connection->leaveEventLoop();
 
   return 0;

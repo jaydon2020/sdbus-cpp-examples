@@ -13,15 +13,24 @@
 // limitations under the License.
 
 #include "bluez_client.h"
+#include "../utils/signal_handler.h"
 
 int main() {
+  installSignalHandlers();
+
   const auto connection = sdbus::createSystemBusConnection();
   connection->enterEventLoopAsync();
 
   BluezClient client(*connection);
 
   using namespace std::chrono_literals;
-  std::this_thread::sleep_for(120000ms);
+  spdlog::info("BlueZ client running - Press Ctrl+C to exit");
+
+  while (g_running) {
+    std::this_thread::sleep_for(100ms);
+  }
+
+  spdlog::info("Shutting down...");
   connection->leaveEventLoop();
 
   return 0;

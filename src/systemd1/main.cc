@@ -1,9 +1,12 @@
 #include <chrono>
 #include <thread>
 #include "systemd1_manager_client.h"
+#include "../utils/signal_handler.h"
 
 int main() {
-  auto connection = sdbus::createSystemBusConnection();
+  installSignalHandlers();
+
+  const auto connection = sdbus::createSystemBusConnection();
   connection->enterEventLoopAsync();
 
   Systemd1ManagerClient client(*connection);
@@ -27,8 +30,13 @@ int main() {
   }
 
   using namespace std::chrono_literals;
-  std::this_thread::sleep_for(5s);  // collect signals
+  spdlog::info("Systemd1 client running - Press Ctrl+C to exit");
 
+  while (g_running) {
+    std::this_thread::sleep_for(100ms);
+  }
+
+  spdlog::info("Shutting down...");
   connection->leaveEventLoop();
   return 0;
 }

@@ -15,8 +15,11 @@
 #include <chrono>
 
 #include "geoclue2_manager.h"
+#include "../utils/signal_handler.h"
 
 int main() {
+  installSignalHandlers();
+
   const auto connection = sdbus::createSystemBusConnection();
   connection->enterEventLoopAsync();
 
@@ -40,7 +43,13 @@ int main() {
   client->Start();
 
   using namespace std::chrono_literals;
-  std::this_thread::sleep_for(30000ms);
+  spdlog::info("GeoClue2 client running - Press Ctrl+C to exit");
+
+  while (g_running) {
+    std::this_thread::sleep_for(100ms);
+  }
+
+  spdlog::info("Shutting down...");
   manager.Client()->Stop();
   connection->leaveEventLoop();
 
