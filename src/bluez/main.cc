@@ -14,9 +14,13 @@
 
 #include "bluez_client.h"
 #include "../utils/signal_handler.h"
+#include "../utils/logging_config.h"
 
 int main() {
   try {
+    // Initialize logging with environment variable configuration
+    logging_config::initializeLogging("bluez_client");
+
     installSignalHandlers();
 
     const auto connection = sdbus::createSystemBusConnection();
