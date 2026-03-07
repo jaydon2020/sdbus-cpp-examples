@@ -1,0 +1,40 @@
+# Dependabot configuration
+#
+# Automatically opens PRs to update pinned GitHub Actions SHAs whenever a new
+# release is published.  Combined with SHA pinning in ci.yml, this gives both
+# immutability (the SHA cannot be moved) and automatic security updates (a PR
+# is raised as soon as a new version is tagged upstream).
+#
+# References:
+#   https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+#   https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions
+
+version: 2
+updates:
+  # ── GitHub Actions ────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    # Dependabot scans every workflow file under .github/workflows/
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "UTC"
+    # Group all action bumps into a single PR so the diff is easy to review
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    # Only open PRs against main/master
+    target-branch: "main"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    # Limit open PRs to avoid noise
+    open-pull-requests-limit: 5
+    # Keep the version comment accurate even when SHA changes
+    versioning-strategy: "auto"
+
