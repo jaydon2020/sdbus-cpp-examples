@@ -98,7 +98,7 @@ jobs:
           submodules: recursive
 
       - name: Install dependencies
-        run:
+        run: |
           # Install LLVM 19 with libc++
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | \
             sudo tee /etc/apt/trusted.gpg.d/llvm.asc
@@ -190,7 +190,7 @@ jobs:
           submodules: recursive
 
       - name: Install dependencies
-        run:
+        run: |
           sudo apt-get update
           sudo apt-get install -y \
             cmake \
