@@ -71,6 +71,7 @@ InputReader::Task InputReader::read_input() {
       LOG_ERROR("HIDIOCGRAWNAME");
       break;
     }
+    buf[sizeof(buf) - 1] = '\0';  // guarantee null-termination
     LOG_INFO("HID Name: {}", buf);
 
     // Raw Physical Location
@@ -79,6 +80,7 @@ InputReader::Task InputReader::read_input() {
       LOG_ERROR("HIDIOCGRAWPHYS");
       break;
     }
+    buf[sizeof(buf) - 1] = '\0';  // guarantee null-termination
     LOG_INFO("HID Physical Location: {}", buf);
 
     // Report Descriptor Size
