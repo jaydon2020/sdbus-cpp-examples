@@ -87,17 +87,15 @@ class Hidraw {
   Hidraw(Hidraw&&) = delete;
   Hidraw& operator=(Hidraw&&) = delete;
 
-  void HidDevicesLock() { devices_mutex_.lock(); }
-
-  void HidDevicesUnlock() { devices_mutex_.unlock(); }
-
-  [[nodiscard]] bool HidDevicesContains(const std::string& key) const {
-    return devices_.contains(key);
-  }
-
-  [[nodiscard]] const std::string& GetHidDevice(
-      const std::string& dev_key) const {
-    return devices_.at(dev_key);
+  /// Thread-safe lookup of a hidraw device by key.
+  /// Returns the device path string if found, or an empty string if not.
+  /// Internally uses std::scoped_lock — callers never touch the mutex directly.
+  [[nodiscard]] std::string FindHidDevice(const std::string& key) const {
+    std::scoped_lock lock(devices_mutex_);
+    if (const auto it = devices_.find(key); it != devices_.end()) {
+      return it->second;
+    }
+    return {};
   }
 
   /**
@@ -381,7 +379,7 @@ class Hidraw {
   static constexpr std::string DEV_NAME = "DEVNAME";
   static constexpr std::string DEV_PATH = "DEVPATH";
 
-  std::mutex devices_mutex_;
+  mutable std::mutex devices_mutex_;
   std::map<std::string, std::string> devices_;
 };
 
