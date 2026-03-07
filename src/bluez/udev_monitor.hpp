@@ -19,6 +19,7 @@
 #include <cerrno>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <string>
 #include <thread>
 #include <utility>
@@ -29,6 +30,40 @@
 #include <unistd.h>
 
 #include <spdlog/spdlog.h>
+
+// ---------------------------------------------------------------------------
+// RAII wrappers for libudev handles
+// ---------------------------------------------------------------------------
+struct UdevDeleter {
+  void operator()(udev* u) const noexcept { udev_unref(u); }
+};
+using UdevPtr = std::unique_ptr<udev, UdevDeleter>;
+
+struct UdevMonitorDeleter {
+  void operator()(udev_monitor* m) const noexcept { udev_monitor_unref(m); }
+};
+using UdevMonitorPtr = std::unique_ptr<udev_monitor, UdevMonitorDeleter>;
+
+struct UdevDeviceDeleter {
+  void operator()(udev_device* d) const noexcept { udev_device_unref(d); }
+};
+using UdevDevicePtr = std::unique_ptr<udev_device, UdevDeviceDeleter>;
+
+/// Minimal RAII wrapper for an epoll file descriptor.
+struct EpollFd {
+  explicit EpollFd(const int fd) noexcept : fd_(fd) {}
+  ~EpollFd() {
+    if (fd_ >= 0)
+      ::close(fd_);
+  }
+  EpollFd(const EpollFd&) = delete;
+  EpollFd& operator=(const EpollFd&) = delete;
+  [[nodiscard]] bool valid() const noexcept { return fd_ >= 0; }
+  [[nodiscard]] int get() const noexcept { return fd_; }
+
+ private:
+  int fd_;
+};
 
 class UdevMonitor {
  public:
@@ -104,39 +139,39 @@ class UdevMonitor {
   std::thread worker_thread_;
 
   void run() {
-    const auto udev = udev_new();
+    // RAII: udev context — automatically udev_unref'd on scope exit
+    const UdevPtr udev(udev_new());
     if (!udev) {
       spdlog::error("Failed to create udev context");
       is_running_ = false;
       return;
     }
 
-    const auto mon = udev_monitor_new_from_netlink(udev, "udev");
+    // RAII: udev monitor — automatically udev_monitor_unref'd on scope exit
+    const UdevMonitorPtr mon(udev_monitor_new_from_netlink(udev.get(), "udev"));
     if (!mon) {
       spdlog::error("Failed to create udev monitor");
-      udev_unref(udev);
       is_running_ = false;
       return;
     }
 
     for (const auto& sub_system : sub_systems_) {
       if (int res = udev_monitor_filter_add_match_subsystem_devtype(
-              mon, sub_system.c_str(), nullptr);
+              mon.get(), sub_system.c_str(), nullptr);
           res != 0) {
         spdlog::error(
             "udev_monitor_filter_add_match_subsystem_devtype failed on {} = {}",
             sub_system, res);
       }
     }
-    udev_monitor_enable_receiving(mon);
-    const auto fd = udev_monitor_get_fd(mon);
+    udev_monitor_enable_receiving(mon.get());
+    const auto fd = udev_monitor_get_fd(mon.get());
 
-    const int epoll_fd = epoll_create1(0);
-    if (epoll_fd == -1) {
+    // RAII: epoll fd — automatically closed on scope exit
+    const EpollFd epoll_fd(epoll_create1(0));
+    if (!epoll_fd.valid()) {
       spdlog::error("Failed to create epoll: {} ({})", std::strerror(errno),
                     errno);
-      udev_monitor_unref(mon);
-      udev_unref(udev);
       is_running_ = false;
       return;
     }
@@ -144,30 +179,25 @@ class UdevMonitor {
     epoll_event ev{};
     ev.events = EPOLLIN;
     ev.data.fd = fd;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
+    if (epoll_ctl(epoll_fd.get(), EPOLL_CTL_ADD, fd, &ev) == -1) {
       spdlog::error("Failed to add udev fd to epoll: {} ({})",
                     std::strerror(errno), errno);
-      close(epoll_fd);
-      udev_monitor_unref(mon);
-      udev_unref(udev);
       is_running_ = false;
       return;
     }
 
     ev.data.fd = pipe_fds_[0];
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, pipe_fds_[0], &ev) == -1) {
+    if (epoll_ctl(epoll_fd.get(), EPOLL_CTL_ADD, pipe_fds_[0], &ev) == -1) {
       spdlog::error("Failed to add pipe fd to epoll: {} ({})",
                     std::strerror(errno), errno);
-      close(epoll_fd);
-      udev_monitor_unref(mon);
-      udev_unref(udev);
       is_running_ = false;
       return;
     }
 
     while (is_running_) {
       epoll_event events[2];
-      const int triggered_event_count = epoll_wait(epoll_fd, events, 2, -1);
+      const int triggered_event_count =
+          epoll_wait(epoll_fd.get(), events, 2, -1);
       if (triggered_event_count == -1) {
         if (errno == EINTR) {
           continue;  // Interrupted by signal, retry
@@ -185,15 +215,13 @@ class UdevMonitor {
         }
 
         if (events[n].data.fd == fd) {
-          if (const auto dev = udev_monitor_receive_device(mon)) {
+          // RAII: device handle — automatically udev_device_unref'd
+          if (UdevDevicePtr dev(udev_monitor_receive_device(mon.get())); dev) {
             if (callback_) {
-              // Get device properties - these can return NULL
-              const char* action = udev_device_get_action(dev);
-              const char* devnode = udev_device_get_devnode(dev);
-              const char* subsystem = udev_device_get_subsystem(dev);
+              const char* action = udev_device_get_action(dev.get());
+              const char* devnode = udev_device_get_devnode(dev.get());
+              const char* subsystem = udev_device_get_subsystem(dev.get());
 
-              // Only invoke callback if we have valid data
-              // Note: devnode can legitimately be NULL for some devices
               if (action && subsystem) {
                 callback_(action, devnode, subsystem);
               } else {
@@ -204,17 +232,13 @@ class UdevMonitor {
                     subsystem ? subsystem : "null");
               }
             }
-            udev_device_unref(dev);
+            // dev destructor calls udev_device_unref automatically
           }
         }
       }
     }
 
-    // Clean up resources in reverse order
-    close(epoll_fd);
-    udev_monitor_unref(mon);
-    udev_unref(udev);
-
+    // All resources (epoll_fd, mon, udev) are released by their destructors.
     spdlog::debug("UdevMonitor worker thread exiting");
   }
 };
