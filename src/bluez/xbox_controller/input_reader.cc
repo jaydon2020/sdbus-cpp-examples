@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <array>
 #include <atomic>
+#include <bit>
+#include <cstring>
 #include <thread>
 
 #include <fcntl.h>
@@ -65,23 +68,23 @@ InputReader::Task InputReader::read_input() {
     LOG_INFO("Product ID: {:04X}", raw_dev_info.product);
 
     // Raw Name
-    char buf[256]{};
-    auto res = ioctl(fd.get(), HIDIOCGRAWNAME(sizeof(buf)), buf);
+    std::array<char, 256> buf{};
+    auto res = ioctl(fd.get(), HIDIOCGRAWNAME(buf.size()), buf.data());
     if (res < 0) {
       LOG_ERROR("HIDIOCGRAWNAME");
       break;
     }
-    buf[sizeof(buf) - 1] = '\0';  // guarantee null-termination
-    LOG_INFO("HID Name: {}", buf);
+    buf.back() = '\0';  // guarantee null-termination
+    LOG_INFO("HID Name: {}", buf.data());
 
     // Raw Physical Location
-    res = ioctl(fd.get(), HIDIOCGRAWPHYS(sizeof(buf)), buf);
+    res = ioctl(fd.get(), HIDIOCGRAWPHYS(buf.size()), buf.data());
     if (res < 0) {
       LOG_ERROR("HIDIOCGRAWPHYS");
       break;
     }
-    buf[sizeof(buf) - 1] = '\0';  // guarantee null-termination
-    LOG_INFO("HID Physical Location: {}", buf);
+    buf.back() = '\0';  // guarantee null-termination
+    LOG_INFO("HID Physical Location: {}", buf.data());
 
     // Report Descriptor Size
     int desc_size = 0;
@@ -103,33 +106,32 @@ InputReader::Task InputReader::read_input() {
 
     std::ostringstream os;
     os << "Report Descriptor\n";
-    os << CustomHexdump<400, false>(rpt_desc.value, rpt_desc.size);
+    os << CustomHexdump<400, false>(std::data(rpt_desc.value), rpt_desc.size);
     LOG_INFO(os.str());
 
     while (!stop_flag_) {
-      std::uint8_t buffer[sizeof(inputReport01_t)];
+      std::array<std::uint8_t, sizeof(inputReport01_t)> buffer{};
       ssize_t result = 0;
-      if (result = read(fd.get(), &buffer[0], sizeof(inputReport01_t));
-          result < 0) {
+      if (result = read(fd.get(), buffer.data(), buffer.size()); result < 0) {
         LOG_ERROR("GetInputReport4 failed: {}", strerror(errno));
         break;
       }
 
       if (raw_dev_info.product == 0x02FD) {
-        if (buffer[0] == 1) {
-          const auto* input_report01 =
-              reinterpret_cast<inputReport01_t*>(buffer);
-          PrintInputReport1(*input_report01);
-        } else if (buffer[0] == 2) {
-          const auto* input_report02 =
-              reinterpret_cast<inputReport02_t*>(buffer);
-          PrintInputReport2(*input_report02);
-        } else if (buffer[0] == 4) {
-          const auto* input_report04 =
-              reinterpret_cast<inputReport04_t*>(buffer);
-          PrintInputReport4(*input_report04);
+        if (const auto report_id = buffer.at(0); report_id == 1) {
+          inputReport01_t input_report01{};
+          std::memcpy(&input_report01, buffer.data(), sizeof(inputReport01_t));
+          PrintInputReport1(input_report01);
+        } else if (report_id == 2) {
+          inputReport02_t input_report02{};
+          std::memcpy(&input_report02, buffer.data(), sizeof(inputReport02_t));
+          PrintInputReport2(input_report02);
+        } else if (report_id == 4) {
+          inputReport04_t input_report04{};
+          std::memcpy(&input_report04, buffer.data(), sizeof(inputReport04_t));
+          PrintInputReport4(input_report04);
         } else {
-          LOG_ERROR("Unknown report id: {}", buffer[0]);
+          LOG_ERROR("Unknown report id: {}", report_id);
         }
       }
     }

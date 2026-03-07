@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <array>
 #include <atomic>
+#include <cstring>
 #include <thread>
 
 #include <fcntl.h>
@@ -65,23 +67,23 @@ InputReader::Task InputReader::read_input() {
     LOG_INFO("Product ID: {:04X}", raw_dev_info.product);
 
     // Raw Name
-    char buf[256]{};
-    auto res = ioctl(fd.get(), HIDIOCGRAWNAME(sizeof(buf)), buf);
+    std::array<char, 256> buf{};
+    auto res = ioctl(fd.get(), HIDIOCGRAWNAME(buf.size()), buf.data());
     if (res < 0) {
       LOG_ERROR("HIDIOCGRAWNAME");
       break;
     }
-    buf[sizeof(buf) - 1] = '\0';  // guarantee null-termination
-    LOG_INFO("HID Name: {}", buf);
+    buf.back() = '\0';  // guarantee null-termination
+    LOG_INFO("HID Name: {}", buf.data());
 
     // Raw Physical Location
-    res = ioctl(fd.get(), HIDIOCGRAWPHYS(sizeof(buf)), buf);
+    res = ioctl(fd.get(), HIDIOCGRAWPHYS(buf.size()), buf.data());
     if (res < 0) {
       LOG_ERROR("HIDIOCGRAWPHYS");
       break;
     }
-    buf[sizeof(buf) - 1] = '\0';  // guarantee null-termination
-    LOG_INFO("HID Physical Location: {}", buf);
+    buf.back() = '\0';  // guarantee null-termination
+    LOG_INFO("HID Physical Location: {}", buf.data());
 
     // Report Descriptor Size
     int desc_size = 0;
@@ -103,37 +105,40 @@ InputReader::Task InputReader::read_input() {
 
     std::ostringstream os;
     os << "Report Descriptor\n";
-    os << CustomHexdump<400, false>(rpt_desc.value, rpt_desc.size);
+    os << CustomHexdump<400, false>(std::data(rpt_desc.value), rpt_desc.size);
     LOG_INFO(os.str());
 
     while (!stop_flag_) {
-      std::uint8_t buffer[sizeof(inputReport12_t)];
+      std::array<std::uint8_t, sizeof(inputReport12_t)> buffer{};
       ssize_t result = 0;
-      if (result = read(fd.get(), &buffer[0], sizeof(inputReport12_t));
-          result < 0) {
+      if (result = read(fd.get(), buffer.data(), buffer.size()); result < 0) {
         LOG_ERROR("read failed: {}", strerror(errno));
         break;
       }
 
       if (raw_dev_info.product == 0x01ab || raw_dev_info.product == 0x0196) {
-        if (auto report_id = buffer[0]; report_id == 7) {
-          const auto* input_report07 =
-              reinterpret_cast<inputReport07_t*>(buffer);
-          PrintInputReport7(*input_report07);
+        if (const auto report_id = buffer.at(0); report_id == 7) {
+          inputReport07_t input_report07{};
+          std::memcpy(&input_report07, buffer.data(),
+                      std::min(sizeof(inputReport07_t), buffer.size()));
+          PrintInputReport7(input_report07);
         } else if (report_id == 10) {
-          const auto* input_report10 =
-              reinterpret_cast<inputReport10_t*>(buffer);
-          PrintInputReport10(*input_report10);
+          inputReport10_t input_report10{};
+          std::memcpy(&input_report10, buffer.data(),
+                      std::min(sizeof(inputReport10_t), buffer.size()));
+          PrintInputReport10(input_report10);
         } else if (report_id == 12) {
-          const auto* input_report12 =
-              reinterpret_cast<inputReport12_t*>(buffer);
-          PrintInputReport12(*input_report12);
+          inputReport12_t input_report12{};
+          std::memcpy(&input_report12, buffer.data(),
+                      std::min(sizeof(inputReport12_t), buffer.size()));
+          PrintInputReport12(input_report12);
         } else if (report_id == 14) {
-          const auto* input_report14 =
-              reinterpret_cast<inputReport14_t*>(buffer);
-          PrintInputReport14(*input_report14);
+          inputReport14_t input_report14{};
+          std::memcpy(&input_report14, buffer.data(),
+                      std::min(sizeof(inputReport14_t), buffer.size()));
+          PrintInputReport14(input_report14);
         } else {
-          LOG_ERROR("Unknown report id: {}", buffer[0]);
+          LOG_ERROR("Unknown report id: {}", report_id);
         }
       }
     }
@@ -201,21 +206,21 @@ void InputReader::PrintInputReport7(const inputReport07_t& input_report07) {
 
 void InputReader::PrintInputReport10(const inputReport10_t& input_report10) {
   std::ostringstream os;
-  os << CustomHexdump<400, false>(input_report10.VEN_Gamepad0024,
+  os << CustomHexdump<400, false>(std::data(input_report10.VEN_Gamepad0024),
                                   sizeof(inputReport10_t));
   LOG_INFO("Input Report 10: {}", os.str());
 }
 
 void InputReader::PrintInputReport12(const inputReport12_t& input_report12) {
   std::ostringstream os;
-  os << CustomHexdump<400, false>(input_report12.VEN_Gamepad0022,
+  os << CustomHexdump<400, false>(std::data(input_report12.VEN_Gamepad0022),
                                   sizeof(inputReport10_t));
   LOG_INFO("Input Report 10: {}", os.str());
 }
 
 void InputReader::PrintInputReport14(const inputReport14_t& input_report14) {
   std::ostringstream os;
-  os << CustomHexdump<400, false>(input_report14.VEN_Gamepad0026,
+  os << CustomHexdump<400, false>(std::data(input_report14.VEN_Gamepad0026),
                                   sizeof(inputReport10_t));
   LOG_INFO("Input Report 14: {}", os.str());
 }
