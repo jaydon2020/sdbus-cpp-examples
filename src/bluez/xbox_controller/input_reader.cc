@@ -45,17 +45,18 @@ InputReader::~InputReader() {
 InputReader::Task InputReader::read_input() {
   LOG_DEBUG("hidraw device: {}", device_);
 
-  const int fd = open(device_.c_str(), O_RDWR);
+  const UniqueFd fd(open(device_.c_str(), O_RDWR));
 
   while (true) {
-    if (fd < 0) {
+    if (!fd.valid()) {
       LOG_ERROR("unable to open device");
       break;
     }
 
     // Raw Info
     hidraw_devinfo raw_dev_info{};
-    if (const auto res = ioctl(fd, HIDIOCGRAWINFO, &raw_dev_info); res < 0) {
+    if (const auto res = ioctl(fd.get(), HIDIOCGRAWINFO, &raw_dev_info);
+        res < 0) {
       LOG_ERROR("HIDIOCGRAWINFO");
       break;
     }
@@ -65,7 +66,7 @@ InputReader::Task InputReader::read_input() {
 
     // Raw Name
     char buf[256]{};
-    auto res = ioctl(fd, HIDIOCGRAWNAME(sizeof(buf)), buf);
+    auto res = ioctl(fd.get(), HIDIOCGRAWNAME(sizeof(buf)), buf);
     if (res < 0) {
       LOG_ERROR("HIDIOCGRAWNAME");
       break;
@@ -73,7 +74,7 @@ InputReader::Task InputReader::read_input() {
     LOG_INFO("HID Name: {}", buf);
 
     // Raw Physical Location
-    res = ioctl(fd, HIDIOCGRAWPHYS(sizeof(buf)), buf);
+    res = ioctl(fd.get(), HIDIOCGRAWPHYS(sizeof(buf)), buf);
     if (res < 0) {
       LOG_ERROR("HIDIOCGRAWPHYS");
       break;
@@ -82,7 +83,7 @@ InputReader::Task InputReader::read_input() {
 
     // Report Descriptor Size
     int desc_size = 0;
-    res = ioctl(fd, HIDIOCGRDESCSIZE, &desc_size);
+    res = ioctl(fd.get(), HIDIOCGRDESCSIZE, &desc_size);
     if (res < 0) {
       LOG_ERROR("HIDIOCGRDESCSIZE");
       break;
@@ -92,7 +93,7 @@ InputReader::Task InputReader::read_input() {
     // Report Descriptor
     hidraw_report_descriptor rpt_desc{};
     rpt_desc.size = desc_size;
-    res = ioctl(fd, HIDIOCGRDESC, &rpt_desc);
+    res = ioctl(fd.get(), HIDIOCGRDESC, &rpt_desc);
     if (res < 0) {
       LOG_ERROR("HIDIOCGRDESC");
       break;
@@ -106,7 +107,8 @@ InputReader::Task InputReader::read_input() {
     while (!stop_flag_) {
       std::uint8_t buffer[sizeof(inputReport01_t)];
       ssize_t result = 0;
-      if (result = read(fd, &buffer[0], sizeof(inputReport01_t)); result < 0) {
+      if (result = read(fd.get(), &buffer[0], sizeof(inputReport01_t));
+          result < 0) {
         LOG_ERROR("GetInputReport4 failed: {}", strerror(errno));
         break;
       }
@@ -132,7 +134,7 @@ InputReader::Task InputReader::read_input() {
     break;
   }
 
-  close(fd);
+  // fd is automatically closed by UniqueFd destructor
   stop();
 
   co_return;  // NOLINT(readability-static-accessed-through-instance)
