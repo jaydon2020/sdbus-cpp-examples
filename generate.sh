@@ -1,7 +1,41 @@
 #!/bin/bash -ex
 
 PROXY=src/proxy
-XML2CPP=$(find -iname sdbus-c++-xml2cpp)
+
+# fix — safe tool resolution (no unconstrained find)
+#
+# Previous code:  XML2CPP=$(find -iname sdbus-c++-xml2cpp)
+# Risk: an adversary who can plant a file named sdbus-c++-xml2cpp anywhere
+# beneath the working directory (e.g., in a malicious submodule) would have it
+# executed instead of the real code-generator.
+#
+# Strategy (ordered, most-specific first):
+#   1. Known CMake build-tree path (cmake-build-debug or build).
+#   2. The tool on PATH (installed system-wide or via the project's own install).
+#   3. Abort with a clear error — never fall through to an untrusted location.
+_find_xml2cpp() {
+    local candidates=(
+        "cmake-build-debug/third_party/sdbus-cpp/tools/sdbus-c++-xml2cpp"
+        "build/third_party/sdbus-cpp/tools/sdbus-c++-xml2cpp"
+        "cmake-build-release/third_party/sdbus-cpp/tools/sdbus-c++-xml2cpp"
+    )
+    for candidate in "${candidates[@]}"; do
+        if [[ -x "${candidate}" ]]; then
+            echo "${candidate}"
+            return 0
+        fi
+    done
+    # Fall back to a PATH lookup (e.g., system-installed package)
+    if command -v sdbus-c++-xml2cpp &>/dev/null; then
+        command -v sdbus-c++-xml2cpp
+        return 0
+    fi
+    echo "ERROR: sdbus-c++-xml2cpp not found." \
+         "Build the project first (cmake + ninja) or install sdbus-c++." >&2
+    return 1
+}
+
+XML2CPP=$(_find_xml2cpp)
 
 mkdir -p ${PROXY}/org/bluez/{Adapter1,AgentManager,BatteryProviderManager1,Battery1,Device1,GattManager1,GattService1,GattCharacteristic1,GattDescriptor1,Input1,LEAdvertisingManager1,Media1,NetworkServer1,Profile1} |true
 
@@ -147,3 +181,5 @@ mkdir -p ${PROXY}/org/ofono/{HandsfreeAudioManager,Manager} |true
 
 ${XML2CPP} --verbose --proxy=${PROXY}/org/ofono/HandsfreeAudioManager/handsfree_audio_manager_proxy.h interfaces/org/ofono/HandsfreeAudioManager/HandsfreeAudioManager.xml
 ${XML2CPP} --verbose --proxy=${PROXY}/org/ofono/Manager/manager_proxy.h interfaces/org/ofono/Manager/Manager.xml
+
+scripts/clang-format.sh src/proxy
