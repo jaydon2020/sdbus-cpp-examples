@@ -38,6 +38,7 @@
 // SINGLE INCLUDE OF SPDLOG - ONLY LOCATION IN CODEBASE
 // ============================================================================
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <memory>
 #include <string>
@@ -209,9 +210,24 @@ inline std::string getLogFilePathFromEnv() {
 
 /**
  * @brief Initialize logging with console and optional file output
+ *
+ * Finding 8 — SPDLOG_NO_EXCEPTIONS ON: with exceptions disabled spdlog routes
+ * internal errors (bad sink path, disk full, etc.) through its error handler
+ * instead of throwing.  We install a custom handler that writes to stderr so
+ * that failures are never silently dropped.  The handler is set *before* any
+ * sink is constructed so that even sink-construction failures are visible.
+ *
  * @param logger_name Name of the logger instance
  */
 inline void initializeLogging(const std::string& logger_name = "default") {
+  // Install the error handler first so sink-construction failures are visible.
+  // This is the *only* reliable notification path when SPDLOG_NO_EXCEPTIONS ON.
+  spdlog::set_error_handler([](const std::string& msg) {
+    // Cannot use spdlog itself here (we may be inside spdlog).
+    // Write directly to stderr so the failure is always visible.
+    std::fprintf(stderr, "[spdlog error] %s\n", msg.c_str());
+  });
+
   try {
     const auto level = getLogLevelFromEnv();
     const auto log_file = getLogFilePathFromEnv();
@@ -257,6 +273,10 @@ inline void initializeLogging(const std::string& logger_name = "default") {
                  spdlog::level::to_string_view(level),
                  log_file.empty() ? "console only" : log_file);
   } catch (const spdlog::spdlog_ex& ex) {
+    // This branch is reached when SPDLOG_NO_EXCEPTIONS is OFF.
+    // Mirror the error-handler path so the failure is always on stderr.
+    std::fprintf(stderr, "[spdlog error] Log initialization failed: %s\n",
+                 ex.what());
     spdlog::error("Log initialization failed: {}", ex.what());
   }
 }
