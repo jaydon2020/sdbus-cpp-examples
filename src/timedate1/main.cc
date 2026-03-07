@@ -14,6 +14,8 @@
 
 #include "timedate1_client.h"
 
+#include <array>
+
 #include "../utils/logging.h"
 #include "../utils/utils.h"
 
@@ -23,19 +25,21 @@ int main() {
 
   Timedate1Client client(*connection);
 
-  std::future<std::map<sdbus::PropertyName, sdbus::Variant>> futures[4];
-  std::promise<std::map<sdbus::PropertyName, sdbus::Variant>> promises[4];
+  std::array<std::future<std::map<sdbus::PropertyName, sdbus::Variant>>, 4>
+      futures;
+  std::array<std::promise<std::map<sdbus::PropertyName, sdbus::Variant>>, 4>
+      promises;
 
   for (int i = 0; i < 4; ++i) {
-    futures[i] = promises[i].get_future();
+    futures.at(i) = promises.at(i).get_future();
     client.GetAllAsync(
         Timedate1Client::INTERFACE_NAME,
         [&, i](std::optional<sdbus::Error> error,
                std::map<sdbus::PropertyName, sdbus::Variant> values) {
           if (!error)
-            promises[i].set_value(std::move(values));
+            promises.at(i).set_value(std::move(values));
           else
-            promises[i].set_exception(std::make_exception_ptr(*error));
+            promises.at(i).set_exception(std::make_exception_ptr(*error));
         });
   }
 

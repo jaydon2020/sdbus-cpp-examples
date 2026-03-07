@@ -14,6 +14,8 @@
 
 #include <sdbus-c++/sdbus-c++.h>
 
+#include <array>
+#include <bit>
 #include <chrono>
 #include <functional>
 #include <iomanip>
@@ -21,8 +23,10 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -50,7 +54,7 @@ class BlockDeviceWatcher
                      sdbus::ObjectPath drivePath,
                      DeviceReadyCallback callback)
       : ProxyInterfaces(connection,
-                        sdbus::ServiceName(kInterfaceName),
+                        sdbus::ServiceName(std::string{kInterfaceName}),
                         objectPath),
         drive_path_(std::move(drivePath)),
         callback_(std::move(callback)),
@@ -62,9 +66,10 @@ class BlockDeviceWatcher
   ~BlockDeviceWatcher() { unregisterProxy(); }
 
  private:
-  static constexpr char kInterfaceName[] = "org.freedesktop.UDisks2";
-  static constexpr char kBlockInterface[] = "org.freedesktop.UDisks2.Block";
-  static constexpr char kFilesystemInterface[] =
+  static constexpr std::string_view kInterfaceName = "org.freedesktop.UDisks2";
+  static constexpr std::string_view kBlockInterface =
+      "org.freedesktop.UDisks2.Block";
+  static constexpr std::string_view kFilesystemInterface =
       "org.freedesktop.UDisks2.Filesystem";
 
   sdbus::ObjectPath drive_path_;
@@ -76,7 +81,8 @@ class BlockDeviceWatcher
       const sdbus::InterfaceName& interfaceName,
       const std::map<sdbus::PropertyName, sdbus::Variant>& changedProperties,
       const std::vector<sdbus::PropertyName>& invalidatedProperties) override {
-    if (const sdbus::InterfaceName blockInterfaceName(kBlockInterface);
+    if (const sdbus::InterfaceName blockInterfaceName(
+            std::string{kBlockInterface});
         interfaceName == blockInterfaceName && !reported_) {
       // Check if IdUsage or other relevant properties changed
       const sdbus::PropertyName idUsageProp("IdUsage");
@@ -95,7 +101,8 @@ class BlockDeviceWatcher
 
     try {
       // Get block properties
-      const sdbus::InterfaceName blockInterfaceName(kBlockInterface);
+      const sdbus::InterfaceName blockInterfaceName(
+          std::string{kBlockInterface});
       auto blockProps = GetAll(blockInterfaceName);
 
       // Check if this is a filesystem
@@ -114,7 +121,7 @@ class BlockDeviceWatcher
       std::map<sdbus::PropertyName, sdbus::Variant> filesystemProps;
       try {
         const sdbus::InterfaceName filesystemInterfaceName(
-            kFilesystemInterface);
+            std::string{kFilesystemInterface});
         filesystemProps = GetAll(filesystemInterfaceName);
         hasFilesystem = true;
       } catch (...) {
@@ -126,8 +133,8 @@ class BlockDeviceWatcher
         std::map<sdbus::PropertyName, sdbus::Variant> driveProps;
         try {
           const auto driveProxy = sdbus::createProxy(
-              getProxy().getConnection(), sdbus::ServiceName(kInterfaceName),
-              drive_path_);
+              getProxy().getConnection(),
+              sdbus::ServiceName(std::string{kInterfaceName}), drive_path_);
           const sdbus::InterfaceName driveInterfaceName(
               "org.freedesktop.UDisks2.Drive");
           driveProps =
@@ -156,8 +163,8 @@ class RemovableDeviceMonitor final
   explicit RemovableDeviceMonitor(sdbus::IConnection& connection,
                                   DeviceReadyCallback callback)
       : ProxyInterfaces(connection,
-                        sdbus::ServiceName(kInterfaceName),
-                        sdbus::ObjectPath(kObjectPath)),
+                        sdbus::ServiceName(std::string{kInterfaceName}),
+                        sdbus::ObjectPath(std::string{kObjectPath})),
         callback_(std::move(callback)) {
     registerProxy();
 
@@ -173,8 +180,8 @@ class RemovableDeviceMonitor final
   ~RemovableDeviceMonitor() { unregisterProxy(); }
 
  private:
-  static constexpr auto kInterfaceName = "org.freedesktop.UDisks2";
-  static constexpr auto kObjectPath = "/org/freedesktop/UDisks2";
+  static constexpr std::string_view kInterfaceName = "org.freedesktop.UDisks2";
+  static constexpr std::string_view kObjectPath = "/org/freedesktop/UDisks2";
 
   DeviceReadyCallback callback_;
   std::map<sdbus::ObjectPath, std::unique_ptr<BlockDeviceWatcher>> watchers_;
@@ -194,7 +201,7 @@ class RemovableDeviceMonitor final
           interfacesAndProperties) override {
     // Check if this is a Block device
     const sdbus::InterfaceName blockInterface("org.freedesktop.UDisks2.Block");
-    auto blockIt = interfacesAndProperties.find(blockInterface);
+    const auto blockIt = interfacesAndProperties.find(blockInterface);
     if (blockIt == interfacesAndProperties.end()) {
       return;
     }
@@ -215,9 +222,9 @@ class RemovableDeviceMonitor final
 
     // Check if the drive is removable
     try {
-      const auto driveProxy =
-          sdbus::createProxy(getProxy().getConnection(),
-                             sdbus::ServiceName(kInterfaceName), drivePath);
+      const auto driveProxy = sdbus::createProxy(
+          getProxy().getConnection(),
+          sdbus::ServiceName(std::string{kInterfaceName}), drivePath);
 
       const sdbus::InterfaceName driveInterfaceName(
           "org.freedesktop.UDisks2.Drive");
@@ -250,7 +257,7 @@ class RemovableDeviceMonitor final
   void onInterfacesRemoved(
       const sdbus::ObjectPath& objectPath,
       const std::vector<sdbus::InterfaceName>& interfaces) override {
-    // Clean up watcher when device is removed
+    // Clean up watcher when a device is removed
     const sdbus::InterfaceName blockInterface("org.freedesktop.UDisks2.Block");
     for (const auto& interface : interfaces) {
       if (interface == blockInterface) {
@@ -270,19 +277,24 @@ std::string byteArrayToString(const std::vector<uint8_t>& bytes) {
     return "";
   }
   // Remove trailing null bytes
-  size_t len = bytes.size();
-  while (len > 0 && bytes[len - 1] == 0) {
-    --len;
+  auto end = bytes.cend();
+  while (end != bytes.cbegin() && *(end - 1) == 0) {
+    --end;
   }
-  // Construct string from raw data and explicit size to avoid iterator
-  // arithmetic with mixed signed/unsigned types.
-  return {reinterpret_cast<const char*>(bytes.data()), len};
+  // Copy bytes into string without reinterpret_cast or subscript decay
+  std::string result;
+  result.reserve(static_cast<std::size_t>(std::distance(bytes.cbegin(), end)));
+  for (auto it = bytes.cbegin(); it != end; ++it) {
+    result.push_back(std::bit_cast<char>(*it));
+  }
+  return result;
 }
 
 // Helper to format size in human-readable format
 std::string formatSize(const uint64_t bytes) {
-  constexpr const char* units[] = {"B", "KB", "MB", "GB", "TB"};
-  constexpr int max_unit = std::size(units) - 1;
+  static constexpr std::array<std::string_view, 5> units{"B", "KB", "MB", "GB",
+                                                         "TB"};
+  static constexpr int max_unit = static_cast<int>(units.size()) - 1;
 
   int unit = 0;
   auto size = static_cast<double>(bytes);
@@ -295,7 +307,8 @@ std::string formatSize(const uint64_t bytes) {
   }
 
   std::ostringstream oss;
-  oss << std::fixed << std::setprecision(2) << size << " " << units[unit];
+  oss << std::fixed << std::setprecision(2) << size << " "
+      << units.at(static_cast<std::size_t>(unit));
   return oss.str();
 }
 

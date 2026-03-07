@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <array>
 #include <atomic>
+#include <cstring>
+#include <span>
 #include <thread>
 
 #include <fcntl.h>
@@ -45,17 +48,18 @@ InputReader::~InputReader() {
 InputReader::Task InputReader::read_input() {
   LOG_DEBUG("hidraw device: {}", device_);
 
-  const int fd = open(device_.c_str(), O_RDWR);
+  const UniqueFd fd(open(device_.c_str(), O_RDWR));
 
   while (true) {
-    if (fd < 0) {
+    if (!fd.valid()) {
       LOG_ERROR("unable to open device");
       break;
     }
 
     // Raw Info
     hidraw_devinfo raw_dev_info{};
-    if (const auto res = ioctl(fd, HIDIOCGRAWINFO, &raw_dev_info); res < 0) {
+    if (const auto res = ioctl(fd.get(), HIDIOCGRAWINFO, &raw_dev_info);
+        res < 0) {
       LOG_ERROR("HIDIOCGRAWINFO");
       break;
     }
@@ -64,25 +68,27 @@ InputReader::Task InputReader::read_input() {
     LOG_INFO("Product ID: {:04X}", raw_dev_info.product);
 
     // Raw Name
-    char buf[256]{};
-    auto res = ioctl(fd, HIDIOCGRAWNAME(sizeof(buf)), buf);
+    std::array<char, 256> buf{};
+    auto res = ioctl(fd.get(), HIDIOCGRAWNAME(buf.size()), buf.data());
     if (res < 0) {
       LOG_ERROR("HIDIOCGRAWNAME");
       break;
     }
-    LOG_INFO("HID Name: {}", buf);
+    buf.back() = '\0';  // guarantee null-termination
+    LOG_INFO("HID Name: {}", buf.data());
 
     // Raw Physical Location
-    res = ioctl(fd, HIDIOCGRAWPHYS(sizeof(buf)), buf);
+    res = ioctl(fd.get(), HIDIOCGRAWPHYS(buf.size()), buf.data());
     if (res < 0) {
       LOG_ERROR("HIDIOCGRAWPHYS");
       break;
     }
-    LOG_INFO("HID Physical Location: {}", buf);
+    buf.back() = '\0';  // guarantee null-termination
+    LOG_INFO("HID Physical Location: {}", buf.data());
 
     // Report Descriptor Size
     int desc_size = 0;
-    res = ioctl(fd, HIDIOCGRDESCSIZE, &desc_size);
+    res = ioctl(fd.get(), HIDIOCGRDESCSIZE, &desc_size);
     if (res < 0) {
       LOG_ERROR("HIDIOCGRDESCSIZE");
       break;
@@ -92,7 +98,7 @@ InputReader::Task InputReader::read_input() {
     // Report Descriptor
     hidraw_report_descriptor rpt_desc{};
     rpt_desc.size = desc_size;
-    res = ioctl(fd, HIDIOCGRDESC, &rpt_desc);
+    res = ioctl(fd.get(), HIDIOCGRDESC, &rpt_desc);
     if (res < 0) {
       LOG_ERROR("HIDIOCGRDESC");
       break;
@@ -100,31 +106,33 @@ InputReader::Task InputReader::read_input() {
 
     std::ostringstream os;
     os << "Report Descriptor\n";
-    os << CustomHexdump<400, false>(rpt_desc.value, rpt_desc.size);
+    os << CustomHexdump<400, false>(std::data(rpt_desc.value), rpt_desc.size);
     LOG_INFO(os.str());
 
     // Get Features
     GetControllerCalibrationData(
-        fd, hw_cal_data_);  // enables extended report for BT
-    GetControllerMacAll(fd, controller_and_host_mac_);
-    GetControllerVersion(fd, version_);
+        fd.get(), hw_cal_data_);  // enables extended report for BT
+    GetControllerMacAll(fd.get(), controller_and_host_mac_);
+    GetControllerVersion(fd.get(), version_);
 
     while (!stop_flag_) {
-      std::uint8_t buffer[sizeof(USBGetStateData)];
+      std::array<std::uint8_t, sizeof(USBGetStateData)> buffer{};
       ssize_t result = 0;
-      if (result = read(fd, &buffer[0], sizeof(USBGetStateData)); result < 0) {
+      if (result = read(fd.get(), buffer.data(), buffer.size()); result < 0) {
         LOG_ERROR("GetInputReport4 failed: {}", strerror(errno));
         break;
       }
 
       if (raw_dev_info.product == 0x0CE6) {
-        auto report_id = buffer[0];
-        if (report_id == 1) {
-          const auto& input_report01 =
-              reinterpret_cast<USBGetStateData&>(buffer);
+        if (const auto report_id = buffer.at(0); report_id == 1) {
+          USBGetStateData input_report01{};
+          std::memcpy(&input_report01, buffer.data(),
+                      std::min(sizeof(USBGetStateData), buffer.size()));
           PrintControllerStateUsb(input_report01, hw_cal_data_);
         } else if (report_id == 49) {
-          const auto& input_report31 = reinterpret_cast<ReportIn31&>(buffer);
+          ReportIn31 input_report31{};
+          std::memcpy(&input_report31, buffer.data(),
+                      std::min(sizeof(ReportIn31), buffer.size()));
           if (input_report31.Data.HasHID) {
             LOG_INFO("[ReportIn31] Has HID");
             PrintControllerStateUsb(input_report31.Data.State.StateData,
@@ -140,7 +148,7 @@ InputReader::Task InputReader::read_input() {
     break;
   }
 
-  close(fd);
+  // fd is automatically closed by UniqueFd destructor
   stop();
 
   co_return;  // NOLINT(readability-static-accessed-through-instance)
@@ -203,48 +211,48 @@ int InputReader::GetControllerCalibrationData(
   // Set gyroscope calibration and normalization parameters.
   const auto speed_2x =
       (cal_data.Data.gyro.speed_plus + cal_data.Data.gyro.speed_minus);
-  hw_cal_data.gyro[0].abs_code = ABS_RX;
-  hw_cal_data.gyro[0].bias = 0;
-  hw_cal_data.gyro[0].sens_numer = speed_2x * GYRO_RES_PER_DEG_S;
-  hw_cal_data.gyro[0].sens_denom =
+  std::get<0>(hw_cal_data.gyro).abs_code = ABS_RX;
+  std::get<0>(hw_cal_data.gyro).bias = 0;
+  std::get<0>(hw_cal_data.gyro).sens_numer = speed_2x * GYRO_RES_PER_DEG_S;
+  std::get<0>(hw_cal_data.gyro).sens_denom =
       abs(cal_data.Data.gyro.pitch_plus - cal_data.Data.gyro.pitch_bias) +
       abs(cal_data.Data.gyro.pitch_minus - cal_data.Data.gyro.pitch_bias);
 
-  hw_cal_data.gyro[1].abs_code = ABS_RY;
-  hw_cal_data.gyro[1].bias = 0;
-  hw_cal_data.gyro[1].sens_numer = speed_2x * GYRO_RES_PER_DEG_S;
-  hw_cal_data.gyro[1].sens_denom =
+  std::get<1>(hw_cal_data.gyro).abs_code = ABS_RY;
+  std::get<1>(hw_cal_data.gyro).bias = 0;
+  std::get<1>(hw_cal_data.gyro).sens_numer = speed_2x * GYRO_RES_PER_DEG_S;
+  std::get<1>(hw_cal_data.gyro).sens_denom =
       abs(cal_data.Data.gyro.yaw_plus - cal_data.Data.gyro.yaw_bias) +
       abs(cal_data.Data.gyro.yaw_minus - cal_data.Data.gyro.yaw_bias);
 
-  hw_cal_data.gyro[2].abs_code = ABS_RZ;
-  hw_cal_data.gyro[2].bias = 0;
-  hw_cal_data.gyro[2].sens_numer = speed_2x * GYRO_RES_PER_DEG_S;
-  hw_cal_data.gyro[2].sens_denom =
+  std::get<2>(hw_cal_data.gyro).abs_code = ABS_RZ;
+  std::get<2>(hw_cal_data.gyro).bias = 0;
+  std::get<2>(hw_cal_data.gyro).sens_numer = speed_2x * GYRO_RES_PER_DEG_S;
+  std::get<2>(hw_cal_data.gyro).sens_denom =
       abs(cal_data.Data.gyro.roll_plus - cal_data.Data.gyro.roll_bias) +
       abs(cal_data.Data.gyro.roll_minus - cal_data.Data.gyro.roll_bias);
 
   // Set accelerometer calibration and normalization parameters.
   auto range_2g = cal_data.Data.acc.x_plus - cal_data.Data.acc.x_minus;
-  hw_cal_data.accel[0].abs_code = ABS_X;
-  hw_cal_data.accel[0].bias =
+  std::get<0>(hw_cal_data.accel).abs_code = ABS_X;
+  std::get<0>(hw_cal_data.accel).bias =
       static_cast<std::int16_t>(cal_data.Data.acc.x_plus - range_2g / 2);
-  hw_cal_data.accel[0].sens_numer = 2 * ACC_RES_PER_G;
-  hw_cal_data.accel[0].sens_denom = range_2g;
+  std::get<0>(hw_cal_data.accel).sens_numer = 2 * ACC_RES_PER_G;
+  std::get<0>(hw_cal_data.accel).sens_denom = range_2g;
 
   range_2g = cal_data.Data.acc.y_plus - cal_data.Data.acc.y_minus;
-  hw_cal_data.accel[1].abs_code = ABS_Y;
-  hw_cal_data.accel[1].bias =
+  std::get<1>(hw_cal_data.accel).abs_code = ABS_Y;
+  std::get<1>(hw_cal_data.accel).bias =
       static_cast<std::int16_t>(cal_data.Data.acc.y_plus - range_2g / 2);
-  hw_cal_data.accel[1].sens_numer = 2 * ACC_RES_PER_G;
-  hw_cal_data.accel[1].sens_denom = range_2g;
+  std::get<1>(hw_cal_data.accel).sens_numer = 2 * ACC_RES_PER_G;
+  std::get<1>(hw_cal_data.accel).sens_denom = range_2g;
 
   range_2g = cal_data.Data.acc.z_plus - cal_data.Data.acc.z_minus;
-  hw_cal_data.accel[2].abs_code = ABS_Z;
-  hw_cal_data.accel[2].bias =
+  std::get<2>(hw_cal_data.accel).abs_code = ABS_Z;
+  std::get<2>(hw_cal_data.accel).bias =
       static_cast<std::int16_t>(cal_data.Data.acc.z_plus - range_2g / 2);
-  hw_cal_data.accel[2].sens_numer = 2 * ACC_RES_PER_G;
-  hw_cal_data.accel[2].sens_denom = range_2g;
+  std::get<2>(hw_cal_data.accel).sens_numer = 2 * ACC_RES_PER_G;
+  std::get<2>(hw_cal_data.accel).sens_denom = range_2g;
 
   // Sanity check gyro calibration data
   size_t i = 0;
@@ -403,24 +411,31 @@ void InputReader::PrintControllerMacAll(
   LOG_INFO("Controller Mac All");
   LOG_INFO("\tReport ID: 0x{:02X}", controller_and_host_mac.ReportID);
 
+  // Iterate in reverse (index 6..1) using a span to avoid non-const subscript.
   std::ostringstream os;
   os << "\tClient: ";
-  for (int i = 6; i; --i) {
-    os << std::hex << std::setw(2) << std::setfill('0')
-       << static_cast<int>(controller_and_host_mac.ClientMac[i]);
-    if (i != 1) {
-      os << ":";
+  {
+    const std::span client(controller_and_host_mac.ClientMac);
+    for (auto it = client.rbegin(); it != client.rend(); ++it) {
+      if (it != client.rbegin()) {
+        os << ":";
+      }
+      os << std::hex << std::setw(2) << std::setfill('0')
+         << static_cast<int>(*it);
     }
   }
   LOG_INFO(os.str());
   os.clear();
   os.str("");
   os << "\tHost: ";
-  for (int i = 6; i; --i) {
-    os << std::hex << std::setw(2) << std::setfill('0')
-       << static_cast<int>(controller_and_host_mac.HostMac[i]);
-    if (i != 1) {
-      os << ":";
+  {
+    const std::span host(controller_and_host_mac.HostMac);
+    for (auto it = host.rbegin(); it != host.rend(); ++it) {
+      if (it != host.rbegin()) {
+        os << ":";
+      }
+      os << std::hex << std::setw(2) << std::setfill('0')
+         << static_cast<int>(*it);
     }
   }
   LOG_INFO(os.str());
@@ -430,8 +445,10 @@ void InputReader::PrintControllerVersion(
     ReportFeatureInVersion const& version) {
   LOG_INFO("Firmware Info");
   LOG_INFO("\tReportID: 0x{:02X}", version.Data.ReportID);
-  LOG_INFO("\tBuildDate: {}", std::string_view(version.Data.BuildDate, 11));
-  LOG_INFO("\tBuildTime: {}", std::string_view(version.Data.BuildTime, 8));
+  LOG_INFO("\tBuildDate: {}",
+           std::string_view(std::data(version.Data.BuildDate), 11));
+  LOG_INFO("\tBuildTime: {}",
+           std::string_view(std::data(version.Data.BuildTime), 8));
   LOG_INFO("\tFwType: {}", version.Data.FwType);
   LOG_INFO("\tSwSeries: 0x{:04X}", version.Data.SwSeries);
   LOG_INFO("\tHardwareInfo: 0x{:08X}", version.Data.HardwareInfo);
@@ -493,28 +510,28 @@ void InputReader::PrintControllerStateUsb(
            state.AngularVelocityY, state.AngularVelocityZ);
 
   auto gyro_x = mult_frac<int32_t, int16_t, int32_t>(
-      hw_cal_data.gyro[0].sens_numer, state.AngularVelocityX,
-      hw_cal_data.gyro[0].sens_denom);
+      std::get<0>(hw_cal_data.gyro).sens_numer, state.AngularVelocityX,
+      std::get<0>(hw_cal_data.gyro).sens_denom);
   auto gyro_y = mult_frac<int32_t, int16_t, int32_t>(
-      hw_cal_data.gyro[1].sens_numer, state.AngularVelocityY,
-      hw_cal_data.gyro[1].sens_denom);
+      std::get<1>(hw_cal_data.gyro).sens_numer, state.AngularVelocityY,
+      std::get<1>(hw_cal_data.gyro).sens_denom);
   auto gyro_z = mult_frac<int32_t, int16_t, int32_t>(
-      hw_cal_data.gyro[2].sens_numer, state.AngularVelocityZ,
-      hw_cal_data.gyro[2].sens_denom);
+      std::get<2>(hw_cal_data.gyro).sens_numer, state.AngularVelocityZ,
+      std::get<2>(hw_cal_data.gyro).sens_denom);
   LOG_INFO("\tAngularVelocity (Cal): {}, {}, {}", gyro_x, gyro_y, gyro_z);
 
   LOG_INFO("\tAccelerometer (Raw): {}, {}, {}", state.AccelerometerX,
            state.AccelerometerY, state.AccelerometerZ);
 
   auto acc_x = mult_frac<int32_t, int16_t, int32_t>(
-      hw_cal_data.accel[0].sens_numer, state.AccelerometerX,
-      hw_cal_data.accel[0].sens_denom);
+      std::get<0>(hw_cal_data.accel).sens_numer, state.AccelerometerX,
+      std::get<0>(hw_cal_data.accel).sens_denom);
   auto acc_y = mult_frac<int32_t, int16_t, int32_t>(
-      hw_cal_data.accel[1].sens_numer, state.AccelerometerY,
-      hw_cal_data.accel[1].sens_denom);
+      std::get<1>(hw_cal_data.accel).sens_numer, state.AccelerometerY,
+      std::get<1>(hw_cal_data.accel).sens_denom);
   auto acc_z = mult_frac<int32_t, int16_t, int32_t>(
-      hw_cal_data.accel[2].sens_numer, state.AccelerometerZ,
-      hw_cal_data.accel[2].sens_denom);
+      std::get<2>(hw_cal_data.accel).sens_numer, state.AccelerometerZ,
+      std::get<2>(hw_cal_data.accel).sens_denom);
   LOG_INFO("\tAccelerometer (Cal): {}, {}, {}", acc_x, acc_y, acc_z);
 
   LOG_INFO("\tSensorTimestamp: {}", state.SensorTimestamp);

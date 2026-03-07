@@ -15,6 +15,7 @@
 #ifndef SRC_BLUEZ_XBOX_CONTROLLER_INPUT_READER_HPP_
 #define SRC_BLUEZ_XBOX_CONTROLLER_INPUT_READER_HPP_
 
+#include <array>
 #include <atomic>
 #include <coroutine>
 
@@ -50,8 +51,8 @@ class InputReader {
   };
 
   struct HardwareCalibrationData {
-    CalibrationData gyro[3];
-    CalibrationData accel[3];
+    std::array<CalibrationData, 3> gyro;
+    std::array<CalibrationData, 3> accel;
   };
 
   std::string device_;

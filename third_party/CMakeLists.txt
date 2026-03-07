@@ -15,6 +15,11 @@ install(TARGETS toolchain EXPORT sdbus-c++-targets)
 #
 # spdlog
 #
+# Exceptions are disabled so spdlog's internal errors (bad sink path, disk
+# full, etc.) are routed through its error-handler instead of being thrown.
+# A custom spdlog::set_error_handler() is installed in src/utils/logging.h
+# before any sink is constructed so these failures are always written to
+# stderr rather than silently dropped.
 set(SPDLOG_NO_EXCEPTIONS ON)
 set(SPDLOG_NO_THREAD_ID ON)
 set(SPDLOG_BUILD_PIC ON)

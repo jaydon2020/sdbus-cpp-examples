@@ -151,14 +151,8 @@ void XboxController::onInterfacesAdded(
       }
 
       if (!hidraw_device_key.empty()) {
-        std::string hidraw_device;
-        HidDevicesLock();
-        if (HidDevicesContains(hidraw_device_key)) {
-          hidraw_device = GetHidDevice(hidraw_device_key);
-        }
-        HidDevicesUnlock();
-
-        if (!hidraw_device.empty()) {
+        if (const std::string hidraw_device = FindHidDevice(hidraw_device_key);
+            !hidraw_device.empty()) {
           LOG_INFO("Adding hidraw device: {}", hidraw_device_key);
           if (!input_reader_) {
             input_reader_ = std::make_unique<InputReader>(hidraw_device);
