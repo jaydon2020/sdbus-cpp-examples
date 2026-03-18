@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SRC_CONNMAN_CLIENT_H
-#define SRC_CONNMAN_CLIENT_H
+#ifndef SRC_CONNMAN_CONNMAN_CLIENT_H
+#define SRC_CONNMAN_CONNMAN_CLIENT_H
 
 #include <map>
 #include <memory>
@@ -92,4 +92,4 @@ class ConnmanServiceClient final
                          const sdbus::Variant& value) override;
 };
 
-#endif  // SRC_CONNMAN_CLIENT_H
+#endif  // SRC_CONNMAN_CONNMAN_CLIENT_H
