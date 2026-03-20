@@ -29,18 +29,23 @@ ConnmanManagerClient::ConnmanManagerClient(sdbus::IConnection& connection)
                       sdbus::ObjectPath{OBJECT_PATH}) {
   registerProxy();
 
-  // Load initial technologies
-  for (const auto& tech : GetTechnologies()) {
-    onTechnologyAdded(tech.get<0>(), tech.get<1>());
-  }
-
-  // Load initial services
-  for (const auto& service : GetServices()) {
-    const auto& path = service.get<0>();
-    if (services_.find(path) == services_.end()) {
-      services_[path] = std::make_unique<ConnmanServiceClient>(
-          getProxy().getConnection(), path);
+  try {
+    // Load initial technologies
+    for (const auto& tech : GetTechnologies()) {
+      onTechnologyAdded(tech.get<0>(), tech.get<1>());
     }
+
+    // Load initial services
+    for (const auto& service : GetServices()) {
+      const auto& path = service.get<0>();
+      if (services_.find(path) == services_.end()) {
+        services_[path] = std::make_unique<ConnmanServiceClient>(
+            getProxy().getConnection(), path);
+      }
+    }
+  } catch (...) {
+    unregisterProxy();
+    throw;
   }
 }
 
@@ -50,24 +55,37 @@ ConnmanManagerClient::~ConnmanManagerClient() {
 
 void ConnmanManagerClient::onPropertyChanged(const std::string& name,
                                              const sdbus::Variant& value) {
-  std::ostringstream os;
-  Utils::append_property(value, os);
-  LOG_INFO("Manager PropertyChanged: {} = {}", name, os.str());
+  try {
+    std::ostringstream os;
+    Utils::append_property(value, os);
+    LOG_INFO("Manager PropertyChanged: {} = {}", name, os.str());
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception in Manager onPropertyChanged: {}", e.what());
+  }
 }
 
 void ConnmanManagerClient::onTechnologyAdded(
     const sdbus::ObjectPath& path,
     const std::map<std::string, sdbus::Variant>& properties) {
-  LOG_INFO("Technology added: {}", path);
-  if (technologies_.find(path) == technologies_.end()) {
-    technologies_[path] = std::make_unique<ConnmanTechnologyClient>(
-        getProxy().getConnection(), path);
+  (void)properties;
+  try {
+    LOG_INFO("Technology added: {}", path);
+    if (technologies_.find(path) == technologies_.end()) {
+      technologies_[path] = std::make_unique<ConnmanTechnologyClient>(
+          getProxy().getConnection(), path);
+    }
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception in onTechnologyAdded: {}", e.what());
   }
 }
 
 void ConnmanManagerClient::onTechnologyRemoved(const sdbus::ObjectPath& path) {
-  LOG_INFO("Technology removed: {}", path);
-  technologies_.erase(path);
+  try {
+    LOG_INFO("Technology removed: {}", path);
+    technologies_.erase(path);
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception in onTechnologyRemoved: {}", e.what());
+  }
 }
 
 void ConnmanManagerClient::onServicesChanged(
@@ -75,36 +93,40 @@ void ConnmanManagerClient::onServicesChanged(
                                     std::map<std::string, sdbus::Variant>>>&
         changed,
     const std::vector<sdbus::ObjectPath>& removed) {
-  for (const auto& service : changed) {
-    const auto& path = service.get<0>();
-    const auto& props = service.get<1>();
+  try {
+    for (const auto& service : changed) {
+      const auto& path = service.get<0>();
+      const auto& props = service.get<1>();
 
-    if (services_.find(path) == services_.end()) {
-      LOG_INFO("Service added: {}", path);
-      services_[path] = std::make_unique<ConnmanServiceClient>(
-          getProxy().getConnection(), path);
-    }
-
-    // Log WiFi info only when Type is explicitly "wifi" in this delta
-    bool is_wifi = false;
-    if (auto it = props.find("Type");
-        it != props.end() && it->second.containsValueOfType<std::string>()) {
-      is_wifi = (it->second.get<std::string>() == "wifi");
-    }
-
-    if (is_wifi) {
-      std::string ssid = "Unknown";
-      if (auto it = props.find("Name");
-          it != props.end() && it->second.containsValueOfType<std::string>()) {
-        ssid = it->second.get<std::string>();
+      if (services_.find(path) == services_.end()) {
+        LOG_INFO("Service added: {}", path);
+        services_[path] = std::make_unique<ConnmanServiceClient>(
+            getProxy().getConnection(), path);
       }
-      LOG_INFO("  WiFi Update: {} [{}]", ssid, path);
-    }
-  }
 
-  for (const auto& path : removed) {
-    LOG_INFO("  Service removed: {}", path);
-    services_.erase(path);
+      // Log WiFi info only when Type is explicitly "wifi" in this delta
+      bool is_wifi = false;
+      if (auto it = props.find("Type");
+          it != props.end() && it->second.containsValueOfType<std::string>()) {
+        is_wifi = (it->second.get<std::string>() == "wifi");
+      }
+
+      if (is_wifi) {
+        std::string ssid = "Unknown";
+        if (auto it = props.find("Name"); it != props.end() &&
+                                          it->second.containsValueOfType<std::string>()) {
+          ssid = it->second.get<std::string>();
+        }
+        LOG_INFO("  WiFi Update: {} [{}]", ssid, path);
+      }
+    }
+
+    for (const auto& path : removed) {
+      LOG_INFO("  Service removed: {}", path);
+      services_.erase(path);
+    }
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception in onServicesChanged: {}", e.what());
   }
 }
 
@@ -135,16 +157,20 @@ ConnmanTechnologyClient::~ConnmanTechnologyClient() {
 
 void ConnmanTechnologyClient::onPropertyChanged(const std::string& name,
                                                 const sdbus::Variant& value) {
-  if (name == "Scanning" && value.containsValueOfType<bool>()) {
-    bool scanning = value.get<bool>();
-    LOG_INFO("Technology [{}] WiFi Scan: {}", getProxy().getObjectPath(),
-             scanning ? "STARTED" : "COMPLETED");
-  }
+  try {
+    if (name == "Scanning" && value.containsValueOfType<bool>()) {
+      bool scanning = value.get<bool>();
+      LOG_INFO("Technology [{}] WiFi Scan: {}", getProxy().getObjectPath(),
+               scanning ? "STARTED" : "COMPLETED");
+    }
 
-  std::ostringstream os;
-  Utils::append_property(value, os);
-  LOG_INFO("Technology [{}] PropertyChanged: {} = {}",
-           getProxy().getObjectPath(), name, os.str());
+    std::ostringstream os;
+    Utils::append_property(value, os);
+    LOG_INFO("Technology [{}] PropertyChanged: {} = {}",
+             getProxy().getObjectPath(), name, os.str());
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception in Technology onPropertyChanged: {}", e.what());
+  }
 }
 
 //
@@ -165,8 +191,12 @@ ConnmanServiceClient::~ConnmanServiceClient() {
 
 void ConnmanServiceClient::onPropertyChanged(const std::string& name,
                                              const sdbus::Variant& value) {
-  std::ostringstream os;
-  Utils::append_property(value, os);
-  LOG_INFO("Service [{}] PropertyChanged: {} = {}", getProxy().getObjectPath(),
-           name, os.str());
+  try {
+    std::ostringstream os;
+    Utils::append_property(value, os);
+    LOG_INFO("Service [{}] PropertyChanged: {} = {}",
+             getProxy().getObjectPath(), name, os.str());
+  } catch (const std::exception& e) {
+    LOG_ERROR("Exception in Service onPropertyChanged: {}", e.what());
+  }
 }

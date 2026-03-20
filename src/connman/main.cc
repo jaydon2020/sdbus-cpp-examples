@@ -15,34 +15,60 @@
 #include "../utils/signal_handler.h"
 #include "connman_client.h"
 
+inline constexpr auto kInitialReconnectDelay = std::chrono::seconds(1);
+inline constexpr auto kMaxReconnectDelay = std::chrono::seconds(30);
+
 int main() {
-  try {
-    logging_config::initializeLogging("connman_client");
-    installSignalHandlers();
+  logging_config::initializeLogging("connman_client");
+  installSignalHandlers();
 
-    const auto connection = sdbus::createSystemBusConnection();
-    connection->enterEventLoopAsync();
+  auto reconnect_delay = kInitialReconnectDelay;
 
-    ConnmanManagerClient client(*connection);
+  while (g_running) {
+    try {
+      auto connection = sdbus::createSystemBusConnection();
+      connection->enterEventLoopAsync();
 
-    LOG_INFO("ConnMan monitor daemon running - Press Ctrl+C to exit");
+      {
+        ConnmanManagerClient client(*connection);
 
-    auto result = monitorLoop(*connection);
+        LOG_INFO("ConnMan monitor running - Press Ctrl+C to exit");
+        reconnect_delay = kInitialReconnectDelay;
 
-    if (result) {
-      LOG_ERROR("Exiting due to: {}", *result);
-    } else {
-      LOG_INFO("Shutting down...");
+        auto result = monitorLoop(*connection);
+
+        if (result) {
+          LOG_ERROR("Monitor loop: {}", *result);
+        } else {
+          LOG_INFO("Shutting down...");
+        }
+      }  // client destroyed before leaving event loop
+
+      connection->leaveEventLoop();
+
+      if (!g_running) {
+        return 0;
+      }
+
+    } catch (const sdbus::Error& e) {
+      LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
+    } catch (const std::exception& e) {
+      LOG_ERROR("Exception: {}", e.what());
     }
 
-    connection->leaveEventLoop();
-    return result ? 1 : 0;
+    if (!g_running) {
+      break;
+    }
 
-  } catch (const sdbus::Error& e) {
-    LOG_ERROR("D-Bus error: {} - {}", e.getName(), e.getMessage());
-    return 1;
-  } catch (const std::exception& e) {
-    LOG_ERROR("Exception: {}", e.what());
-    return 1;
+    LOG_INFO("Reconnecting in {} seconds...",
+             std::chrono::duration_cast<std::chrono::seconds>(reconnect_delay)
+                 .count());
+    std::this_thread::sleep_for(reconnect_delay);
+    reconnect_delay =
+        std::min(reconnect_delay * 2,
+                 std::chrono::duration_cast<std::chrono::seconds>(
+                     kMaxReconnectDelay));
   }
+
+  return 1;
 }
