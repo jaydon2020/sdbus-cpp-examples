@@ -113,8 +113,9 @@ void ConnmanManagerClient::onServicesChanged(
 
       if (is_wifi) {
         std::string ssid = "Unknown";
-        if (auto it = props.find("Name"); it != props.end() &&
-                                          it->second.containsValueOfType<std::string>()) {
+        if (auto it = props.find("Name");
+            it != props.end() &&
+            it->second.containsValueOfType<std::string>()) {
           ssid = it->second.get<std::string>();
         }
         LOG_INFO("  WiFi Update: {} [{}]", ssid, path);

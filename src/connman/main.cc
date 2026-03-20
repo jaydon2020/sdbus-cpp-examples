@@ -64,10 +64,9 @@ int main() {
              std::chrono::duration_cast<std::chrono::seconds>(reconnect_delay)
                  .count());
     std::this_thread::sleep_for(reconnect_delay);
-    reconnect_delay =
-        std::min(reconnect_delay * 2,
-                 std::chrono::duration_cast<std::chrono::seconds>(
-                     kMaxReconnectDelay));
+    reconnect_delay = std::min(
+        reconnect_delay * 2,
+        std::chrono::duration_cast<std::chrono::seconds>(kMaxReconnectDelay));
   }
 
   return 1;
